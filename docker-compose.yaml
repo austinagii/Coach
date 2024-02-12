@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  api:
+    build: 
+      context: ./api
+      target: dev 
+    env_file:
+      ./api/.env
+    ports:
+      - "8080:8080"
+    container_name: aisu-api
+  ui:
+    build: 
+      context: ./ui
+      target: dev 
+    ports:
+      - "8000:5173"
+    container_name: aisu-ui
