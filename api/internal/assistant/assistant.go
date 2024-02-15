@@ -13,8 +13,9 @@ import (
 var APIKey string = os.Getenv("OPENAI_API_KEY")
 
 type Assistant struct {
-  Chat          *list.List
-  client        *openai.Client
+  Type      AssistantType
+  Chat      *list.List
+  client    *openai.Client
 }
 
 type AssistantResponse struct {
@@ -42,7 +43,7 @@ func (assistant *Assistant) Respond(message *Message) (*AssistantResponse, error
     openai.ChatCompletionRequest {
       Model: openai.GPT4TurboPreview,
       Messages: toChatCompletionMessages(assistant.Chat),
-      ResponseFormat: &openai.ChatCompletionResponseFormat{
+      ResponseFormat: &openai.ChatCompeltionResponseFormat{
         Type: openai.ChatCompletionResponseFormatTypeJSONObject,
       },
     },
