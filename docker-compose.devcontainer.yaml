@@ -1,15 +1,5 @@
 version: '3.8'
 services:
-  api:
-    build: 
-      target: devcontainer
-    container_name: api-devcontainer
-    volumes:
-      - type: bind
-        source: ./api
-        target: /api
-    stdin_open: true
-    tty: true
   ui:
     build: 
       target: devcontainer
@@ -20,3 +10,15 @@ services:
         target: /ui
     stdin_open: true
     tty: true
+  api:
+    build: 
+      target: devcontainer
+    container_name: api-devcontainer
+    volumes:
+      - type: bind
+        source: ./api
+        target: /api
+    stdin_open: true
+    tty: true
+  database:
+    container_name: db-devcontainer

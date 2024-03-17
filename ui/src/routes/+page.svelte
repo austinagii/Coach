@@ -1,41 +1,67 @@
 <script>
-  let assistantResponse = "Hey! What's your goal?";
-  let userResponse = "";
-  
-  const goalCompletionUrl = "http://localhost:8080/goal-completion";
-  async function fetchAssistantResponse(event) {
-    if(event != null) {
-      event.preventDefault();
-    }
-    let request = {
-      user_message: userResponse
-    }
-    const response = await fetch(goalCompletionUrl, {
+  import { onMount } from 'svelte';
+
+  let chatId = ""
+  let assistantMessage = "";
+  let userMessage = "";
+
+  async function startNewChat() {
+    const response = await fetch("http://localhost:8080/chats", {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'  
       },
-      body: JSON.stringify(request)
+      body: JSON.stringify({
+        task: "goal_creation"
+      })
     });
 
     if (response.ok) {
       const responseData = await response.json();
-      assistantResponse = responseData['assistant_message']
-      userResponse = ""
+      chatId = responseData['id']
+      assistantMessage = responseData['text']
+    }
+  } 
+
+  async function fetchAssistantResponse(event) {
+    if(event != null) {
+      event.preventDefault();
+    }
+    const response = await fetch(`http://localhost:8080/chats/${chatId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'  
+      },
+      body: JSON.stringify({
+        text: userMessage,
+        task: {
+          type: "goal_creation"
+        }
+      })
+    });
+
+    if (response.ok) {
+      const responseData = await response.json();
+      assistantMessage = responseData['text']
+      userMessage = ""
     }
   }
+
+  onMount(startNewChat)
 </script>
 
 <div class="container">
   <div class="spacer-1"></div>
   <div class="assistant-response-wrapper">
-    <p id="assistant-response">{assistantResponse}</p>
+    <p id="assistant-response">{assistantMessage}</p>
   </div>
   <div class="spacer-2"></div>
   <form id="user-response">
-    <input type="text" placeholder="Type your response here!" bind:value={userResponse}>
+    <input type="text" placeholder="Type your response here!" bind:value={userMessage}>
     <button on:click={fetchAssistantResponse}>-></button>
   </form>
+  <div class="spacer-2"></div>
+  <button on:click={startNewChat}>Reset</button>
 </div>
 
 <style>
