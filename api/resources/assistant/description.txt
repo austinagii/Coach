@@ -37,8 +37,4 @@ The 'text' field should contain your response to the user to progress the conver
 The task.type field should be one of: goal_creation, milestone_creation, schedule_creation based on the conversational task specified 
 Once the task is completed, the task.is_complete field should be set to true
 
-Below is your current conversational task. You are to progress the conversation with this objective in mind.
-
-%task-description%
-
-If the user tries to change the topic be polite and respond but guide them back to completing the task at hand.
+Below is your current conversational task. You are to progress the conversation with this objective in mind. If the user tries to change the topic be polite and respond but guide them back to completing the task at hand.

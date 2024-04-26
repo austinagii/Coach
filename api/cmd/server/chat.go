@@ -1,15 +1,16 @@
 package main
 
 import (
+	"aisu.ai/api/v2/cmd/server/shared/api"
 	"aisu.ai/api/v2/internal/assistant"
-	"aisu.ai/api/v2/internal/chat"
+	"aisu.ai/api/v2/internal/assistant/task"
 	"github.com/gin-gonic/gin"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
 type NewChatRequest struct {
-	Task chat.TaskType `json:"task"`
+	Task task.Task `json:"task"`
 }
 
 type NewChatResponse struct {
@@ -20,22 +21,28 @@ type NewChatResponse struct {
 func CreateChat(context *gin.Context) {
 	request := NewChatRequest{}
 	if err := context.BindJSON(&request); err != nil {
-		log.Panicf("Could not de-serialize JSON request body to 'NewChatRequest' struct: '%v'", err)
+		// TODO: Add user friendly error messages for request validation.
+		slog.Error("Failed to deserialize request body to new chat request", "err", err)
+		context.IndentedJSON(
+			http.StatusBadRequest,
+			api.NewApiError(api.InvalidRequest, err.Error()),
+		)
+		return
 	}
 
-	userChat, userTask := chat.NewChat(), chat.NewTask(request.Task, nil)
-	initialChatMessage, err := userTask.GetInitialMessage()
-	if err != nil {
-		log.Fatal(err)
+	// Create a new assistant with it's own chat and save it for future use.
+	assistant := assistant.NewAssistant(openaiClient, request.Task)
+	repository := assistant.NewAssistantRepository(dbClient.Database("assistant"))
+	if err := repository.Save(assistant); err != nil {
+
 	}
-	userChat.Append(initialChatMessage)
 
-	chatRepository := chat.NewChatRepository()
-	chatId := chatRepository.Save(userChat)
-	userChat.Id = chatId
-
-	response := &NewChatResponse{Id: chatId, Text: initialChatMessage.Text}
+	response := &NewChatResponse{
+		Id:   assistant.Id,
+		Text: assistant.Chat.GetLastMessage().Text,
+	}
 	context.IndentedJSON(http.StatusCreated, response)
+	context.BindHeader(map[string]string{"Location": "https://api.superu.ai/v1/chat/%s"})
 	return
 }
 

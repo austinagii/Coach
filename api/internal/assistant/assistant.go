@@ -1,186 +1,195 @@
 package assistant
 
 import (
-	"aisu.ai/api/v2/internal/chat"
 	"context"
 	"encoding/json"
 	"fmt"
-	openai "github.com/sashabaranov/go-openai"
+  "uuid"
 	"log"
+	"log/slog"
 	"os"
 	"strings"
+	"time"
+
+	"aisu.ai/api/v2/internal/assistant/chat"
+	"aisu.ai/api/v2/internal/assistant/task"
+	"aisu.ai/api/v2/internal/user"
+	openai "github.com/sashabaranov/go-openai"
 )
 
-var APIKey string = os.Getenv("OPENAI_API_KEY")
+// The initial message to be
+var initialMessageByOjective = map[task.Objective]string{}
+var assistantDescription string
 
+// TODO: Properly initialize model exchange repoistory
+var modelExchangeRepository = NewLanguageModelExchangeRepository()
+// Assistant is an interactive agent responsible for completing a specified
+// task by sending and receiving text based messages.
+//
+// An assistant manages the current task and chat states, updating both as
+// new messages are received and processed. The assistant provides responses
+// by wrapping an OpenAI model via the `openai.Client` struct and prompts
+// that model to produce a response to a given message.
 type Assistant struct {
-	client      *openai.Client
-	Description string
-	Chat        *chat.Chat
-	repository  *chat.ChatRepository
+	Id          string     `json:"id" bson:"_id"`
+	Task        *task.Task `json:"task"`
+	description string     `json:"-"`
+	// Want to make the user struct readonly so that the assistant doesn't
+	// update the users goals accidentally. But would still like the User
+	// description to be updated as the assistant interacts with the user.
+	User *user.User `json:"-"`
+	// Each time a message is sent to openai that full prompt and response
+	// should be saved to the database for auditing. Each time a prompt is sent
+	// a unique id should be generated and the corresponding chat message
+	// produced should be linked back to that prompt's ID.
+	Chat   *chat.Chat     `json:"chat"`
+	client *openai.Client `json:"-"`
 }
 
-func NewAssistant(task *chat.Task, chatId string) *Assistant {
+// NewAssistant creates an assistant to complete the specified task.
+//
+// When a new assistant is created, it is initalized with a description
+// and initial chat message based on the specified task. The description
+// is a combination of the assistant's generic description plus the
+// description of the task and the initial message is a pre-defined starter
+// message relevant to the task's objective.
+func NewAssistant(
+	openaiClient *openai.Client,
+	task task.Task,
+) *Assistant {
 	assistant := &Assistant{
-		client:     openai.NewClient(APIKey),
-		repository: chat.NewChatRepository(),
+		client: openaiClient,
+    tas
 	}
 
-	if assistantMessage.Task.IsComplete {
-		if assistantMessage.Task.TaskType == TaskTypeGoalCreation {
-			goalId = goalRepository.Save(Task.Output)
-			assistantMessage.Task.TaskType = TaskTypeMilestoneCreation
-			assistantMessage.Task.TargetEntityId = goalId
-		} else if assistantMessage.Task.TaskType == TaskTypeMilestoneCreation {
-
-		}
-	}
-	log.Print("Assistant defined")
-	assistant.Chat = assistant.repository.Get(chatId)
-	assistant.Chat.Id = chatId
-	log.Printf("Loaded chat: %v", assistant.Chat)
 	if err := assistant.SetTask(task); err != nil {
+		slog.Error("Failed to load task ''", task)
 		log.Print("Here")
 		log.Fatal(err)
 	}
 	return assistant
 }
 
-func LoadAssistant(chatId string) *Assistant {
-	assistant := &Assistant{
-		client:     openai.NewClient(APIKey),
-		repository: chat.NewChatRepository(),
+func (assistant *Assistant) getInitialMessage(objective task.Objective) (*chat.Message, error) {
+	initialMessageText, ok := initialMessageByOjective[objective]
+	if !ok {
+		err := fmt.Errorf("No initial message found for task '%s'", assistant.task.Objective)
+		return chat.NewEmptyAssistantMessage(), err
 	}
-	assistant.Chat = assistant.repository.Get(chatId)
-	assistant.Chat.Id = chatId
-
-	lastTask := assistant.Chat.GetLastMessage().Task
-	if lastTask.IsComplete {
-		var currentTaskType TaskType
-		switch lastTask.TaskType {
-		case TaskTypeGoalCreation:
-			currentTaskType = TaskTypeMilestoneCreation
-		case TaskTypeMilestoneCreation:
-			currentTaskType = TaskTypeScheduleCreation
-		case TaskTypeScheduleCreation:
-			currentTaskType = TaskTypeChat
-		}
-		assistant.SetTask(nextTask)
-	} else {
-		assistant.SetTask(assistant.Chat.GetLastMessage().Task)
-	}
-
-	log.Print("Assistant defined")
-	log.Printf("Loaded chat: %v", assistant.Chat)
-	if err := assistant.SetTask(task); err != nil {
-		log.Print("Here")
-		log.Fatal(err)
-	}
-	return assistant
-}
-
-func (assistant *Assistant) SetTask(task *chat.Task) error {
-	// TODO: Refactor to only load assistant description once.
-	assistantDescriptionFilePath := "resources/assistant-description.txt"
-	fileContents, err := os.ReadFile(assistantDescriptionFilePath)
-	if err != nil {
-		err := fmt.Errorf("Assistant description file could not be found at location: '%s'", assistantDescriptionFilePath)
-		return err
-	}
-	assistantDescriptionTemplate := string(fileContents)
-	taskDescription, err := task.GetDescription()
-	if err != nil {
-		return err
-	}
-
-	assistant.Description = strings.Replace(assistantDescriptionTemplate, "%task-description%", taskDescription, -1)
-	return nil
+	return chat.NewAssistantMessage(initialMessageText), nil
 }
 
 func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error) {
 	assistant.Chat.Append(message)
+	assistantMessage, err := assistant.requestMessageResponseFromModel()
+	if err != nil {
+		errMsg := "An error occurred while requesting a response from the model"
+		slog.Error(errMsg, "error", err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
+	}
+	assistant.Chat.Append(assistantMessage)
+	return assistantMessage, nil
+}
 
+func (assistant *Assistant) promptModel() (*chat.Message, error) {
+  // Generate a unique ID to track this conversational exchange.
+  exchangeId := uuid.NewString()
+
+	systemMessage := openai.ChatCompletionMessage{
+		Role:    "system",
+		Content: fmt.Sprintf("%s\n\n%s", assistant.description, assistant.Task.Description),
+	}
+
+	// TODO: Marshall to yaml for better model understadability and size/cost reduction.
+	userMessageText, err := json.Marshal(ChatPrompt{
+		user: assistant.User,
+		task: assistant.Task,
+		chat: assistant.Chat,
+	})
+	if err != nil {
+		errMsg := "An error occurred while marshalling the chat prompt to JSON"
+		slog.Error(errMsg, "error", err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
+	}
+  userMessage := openai.ChatCompletionMessage{
+		Role:    "user",
+		Content: string(userMessageText),
+	}
+
+
+  initiationTime := time.Now().UnixMilli()
 	resp, err := assistant.client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
 			Model:    openai.GPT4TurboPreview,
-			Messages: toChatCompletionMessages(assistant.Description, assistant.Chat),
+			Messages: []openai.ChatCompletionMessage{systemMessage, userMessage},
 			ResponseFormat: &openai.ChatCompletionResponseFormat{
 				Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 			},
 		},
 	)
+  completionTime := time.Now.UnixMilli()
 	if err != nil {
-		return nil, err
+		errMsg := "An error occurred while requesting a chat completion from the OpenAI API"
+		slog.Error(errMsg, "error", err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
-	assistantMessage, err := parseAssistantResponse(resp.Choices[0].Message.Content)
+  assistantMessageText := resp.Choices[0].Message.Content
+
+  // Fire and forget the exchange audit. Success here is't critical
+  // TODO: Move auditing to a separate goroutine.
+  defer modelExchangeRepository.Save(exchangeId, nil, assistantMessageText, requestedAt, respondedAt)
+
+	assistantMessage := chat.NewEmptyAssistantMessage()
+	assistantMessageText = strings.TrimPrefix(assistantMessageText, "```json\n")
+  assistantMessageText = strings.TrimSuffix(jsonResponse, "\n```")
+	err = json.Unmarshal([]byte(assistantMessageText), assistantMessage)
 	if err != nil {
-		return nil, err
-	}
-
-	if assistantMessage.Task.IsComplete {
-		switch assistantMessage.Task.Type {
-		case TaskTypeGoalCreation:
-			goal := assistantMessage.Task.Result.(*Goal)
-			goalId := goalRepository.Save(goal)
-		case TaskTypeScheduleCreation:
-			milestones = assistantMessage.Task.Result.([]*Milestone)
-			milestones = goalRepository.SaveMilestones(goalId, milestones)
-		case TaskTypeScheduleCreation:
-			// is his the first schedule?
-			schedule = assistant.Task.Result(*Schedule)
-			scheduleId = scheduleRepository.SaveMilestones(schedule)
-		}
-	}
-
-	assistant.Chat.Append(assistantMessage)
-	assistant.repository.SaveNewMessages(assistant.Chat.Id, message, assistantMessage)
-	return assistantMessage, nil
-}
-
-var roleBySender = map[chat.Sender]string{
-	chat.SenderUser:      "user",
-	chat.SenderAssistant: "assistant",
-	chat.SenderSystem:    "system",
-}
-
-func getRole(sender chat.Sender) string {
-	role, ok := roleBySender[sender]
-	if !ok {
-		// Do something here.
-	}
-	return role
-}
-
-func toChatCompletionMessages(assistantDescription string, userChat *chat.Chat) []openai.ChatCompletionMessage {
-	var messages []openai.ChatCompletionMessage
-
-	messages = append(messages, openai.ChatCompletionMessage{
-		Role:    getRole(chat.SenderSystem),
-		Content: assistantDescription,
-	})
-
-	for _, message := range userChat.Messages {
-		messageJson, err := json.Marshal(message)
-		if err != nil {
-			// Do something here.
-		}
-		messages = append(messages, openai.ChatCompletionMessage{
-			Role:    getRole(message.Sender),
-			Content: string(messageJson),
-		})
-	}
-	return messages
-}
-
-func parseAssistantResponse(jsonResponse string) (*chat.Message, error) {
-	message := chat.NewEmptyAssistantMessage()
-	fmt.Println(jsonResponse)
-	jsonResponse = strings.TrimPrefix(jsonResponse, "```json\n")
-	jsonResponse = strings.TrimSuffix(jsonResponse, "\n```")
-	err := json.Unmarshal([]byte(jsonResponse), message)
-	if err != nil {
-		return nil, err
+		errMsg := "An error occurred while parsing the OpenAI API response"
+		slog.Error(errMsg, "error", err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 	return message, nil
+}
+
+func (a *Assistant) NewMessages() []*chat.Message {
+
+}
+
+// loadDescription loads the agent's description from the description file.
+func loadDescription() error {
+	filePath := "resources/assistant/description.txt"
+	fileContents, err := os.ReadFile(filePath)
+	if err != nil {
+		errMsg := "An error occurred while attempting to read the assistant description file"
+		slog.Error(errMsg, "error", err)
+		return fmt.Errorf("%s: %w", filePath, err)
+	}
+
+	assistantDescription = string(fileContents)
+	return nil
+}
+
+// loadTaskInitialMessages loads the first message to be used by a newly created assistant for each objective.
+//
+// Each message is loaded from it's config file and an error is returned if the message file could
+// not be read.
+func loadTaskInitialMessages() error {
+	filePathByObjective := map[task.Objective]string{
+		task.ObjectiveGoalCreation:      "resources/objectives/goal_creation/initial-message.txt",
+		task.ObjectiveMilestoneCreation: "resources/objectives/milestone_creation/initial-message.txt",
+		task.ObjectiveScheduleCreation:  "resources/objectives/schedule_creation/initial-message.txt",
+		task.ObjectiveChat:              "resources/objectives/chat/initial-message.txt",
+	}
+
+	for objective, filePath := range filePathByObjective {
+		fileContents, err := os.ReadFile(filePath)
+		if err != nil {
+			errMsg := fmt.Sprintf("An error occurred while reading the initial message file for objective '%s'", objective)
+			slog.Error(errMsg, "error", err)
+			return fmt.Errorf("%s: %w", errMsg, err)
+		}
+		initialMessageByOjective[objective] = string(fileContents)
+	}
+	return nil
 }
