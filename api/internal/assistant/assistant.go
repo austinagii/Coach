@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-  "uuid"
 	"log"
 	"log/slog"
 	"os"
 	"strings"
 	"time"
+	"uuid"
 
 	"aisu.ai/api/v2/internal/assistant/chat"
 	"aisu.ai/api/v2/internal/assistant/task"
@@ -23,6 +23,7 @@ var assistantDescription string
 
 // TODO: Properly initialize model exchange repoistory
 var modelExchangeRepository = NewLanguageModelExchangeRepository()
+
 // Assistant is an interactive agent responsible for completing a specified
 // task by sending and receiving text based messages.
 //
@@ -55,17 +56,11 @@ type Assistant struct {
 // message relevant to the task's objective.
 func NewAssistant(
 	openaiClient *openai.Client,
-	task task.Task,
+	task *task.Task,
 ) *Assistant {
 	assistant := &Assistant{
 		client: openaiClient,
-    tas
-	}
-
-	if err := assistant.SetTask(task); err != nil {
-		slog.Error("Failed to load task ''", task)
-		log.Print("Here")
-		log.Fatal(err)
+		Task:   task,
 	}
 	return assistant
 }
@@ -92,16 +87,17 @@ func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error
 }
 
 func (assistant *Assistant) promptModel() (*chat.Message, error) {
-  // Generate a unique ID to track this conversational exchange.
-  exchangeId := uuid.NewString()
+	// Generate a unique ID to track this conversational exchange.
+	exchangeId := uuid.NewString()
 
+	systemMessageText := fmt.Sprintf("%s\n\n%s", assistant.description, assistant.Task.Description)
 	systemMessage := openai.ChatCompletionMessage{
 		Role:    "system",
-		Content: fmt.Sprintf("%s\n\n%s", assistant.description, assistant.Task.Description),
+		Content: systemMessageText,
 	}
 
 	// TODO: Marshall to yaml for better model understadability and size/cost reduction.
-	userMessageText, err := json.Marshal(ChatPrompt{
+	userMessageBytes, err := json.Marshal(ChatPrompt{
 		user: assistant.User,
 		task: assistant.Task,
 		chat: assistant.Chat,
@@ -111,13 +107,13 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 		slog.Error(errMsg, "error", err)
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
-  userMessage := openai.ChatCompletionMessage{
+	userMessageText := string(userMessageBytes)
+	userMessage := openai.ChatCompletionMessage{
 		Role:    "user",
 		Content: string(userMessageText),
 	}
 
-
-  initiationTime := time.Now().UnixMilli()
+	initiationTime := time.Now().UnixMilli()
 	resp, err := assistant.client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
@@ -128,32 +124,34 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 			},
 		},
 	)
-  completionTime := time.Now.UnixMilli()
+	completionTime := time.Now().UnixMilli()
 	if err != nil {
 		errMsg := "An error occurred while requesting a chat completion from the OpenAI API"
 		slog.Error(errMsg, "error", err)
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
-  assistantMessageText := resp.Choices[0].Message.Content
+	assistantMessageText := resp.Choices[0].Message.Content
 
-  // Fire and forget the exchange audit. Success here is't critical
-  // TODO: Move auditing to a separate goroutine.
-  defer modelExchangeRepository.Save(exchangeId, nil, assistantMessageText, requestedAt, respondedAt)
+	// Fire and forget the exchange audit. Success here is't critical
+	go modelExchangeRepository.Save(
+		exchangeId,
+		systemMessageText,
+		userMessageText,
+		assistantMessageText,
+		initiationTime,
+		completionTime,
+	)
 
 	assistantMessage := chat.NewEmptyAssistantMessage()
 	assistantMessageText = strings.TrimPrefix(assistantMessageText, "```json\n")
-  assistantMessageText = strings.TrimSuffix(jsonResponse, "\n```")
+	assistantMessageText = strings.TrimSuffix(assistantMessageText, "\n```")
 	err = json.Unmarshal([]byte(assistantMessageText), assistantMessage)
 	if err != nil {
-		errMsg := "An error occurred while parsing the OpenAI API response"
+		errMsg := "An error occurred while unmarshalling the OpenAI API model response"
 		slog.Error(errMsg, "error", err)
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
-	return message, nil
-}
-
-func (a *Assistant) NewMessages() []*chat.Message {
-
+	return assistantMessage, nil
 }
 
 // loadDescription loads the agent's description from the description file.

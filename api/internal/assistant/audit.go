@@ -9,12 +9,13 @@ import (
 
 // languageModelExchange represents a single conversational exchange with a language model.
 type languageModelExchange struct {
-	Id          string `json:"_id,omitempty"`
-	MessageId   string `json:"message_id"`
-	Prompt      string `json:"prompt"`
-	Response    string `json:"response"`
-	PromptedAt  int64  `json:"prompted_at"`
-	RespondedAt int64  `json:"responded_at"`
+	Id            string `json:"_id,omitempty"`
+	MessageId     string `json:"message_id"`
+	SystemMessage string `json:"system_message"`
+	Prompt        string `json:"prompt"`
+	Response      string `json:"response"`
+	PromptedAt    int64  `json:"prompted_at"`
+	RespondedAt   int64  `json:"responded_at"`
 }
 
 // LanguageModelExchangeRepository is responsible for auditing exchanges with a language model
@@ -27,20 +28,22 @@ func NewLanguageModelExchangeRepository(database *mongo.Database) *LanguageModel
 	return &LanguageModelExchangeRepository{collection: database.Collection("model_exchange")}
 }
 
-// Save stores an exchange with a language model to the database, returning an error if one occurrs.
+// Save persists a language model exchange to the database, returning any error that occurrs.
 func (r *LanguageModelExchangeRepository) Save(
 	messageId string,
+	systemMessage string,
 	prompt string,
 	response string,
 	promptedAt int64,
 	respondedAt int64,
 ) error {
 	exchange := &languageModelExchange{
-		MessageId:   messageId,
-		Prompt:      prompt,
-		Response:    response,
-		PromptedAt:  promptedAt,
-		RespondedAt: respondedAt,
+		MessageId:     messageId,
+		SystemMessage: systemMessage,
+		Prompt:        prompt,
+		Response:      response,
+		PromptedAt:    promptedAt,
+		RespondedAt:   respondedAt,
 	}
 
 	_, err := r.collection.InsertOne(context.TODO(), exchange)
