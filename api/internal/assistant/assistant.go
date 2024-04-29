@@ -15,12 +15,7 @@ import (
 	"time"
 )
 
-// The initial message to be
 var initialMessageByOjective = map[task.Objective]string{}
-var assistantDescription string
-
-// TODO: Properly initialize model exchange repoistory
-var modelExchangeRepository = NewLanguageModelExchangeRepository()
 
 // Assistant is an interactive agent responsible for completing a specified
 // task by sending and receiving text based messages.
