@@ -1,8 +1,8 @@
 package assistant
 
 import (
+	"aisu.ai/api/v2/internal/assistant/chat"
 	"aisu.ai/api/v2/internal/assistant/task"
-	"aisu.ai/api/v2/internal/chat"
 	"aisu.ai/api/v2/internal/user"
 )
 

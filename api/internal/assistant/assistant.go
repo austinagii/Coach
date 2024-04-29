@@ -1,20 +1,18 @@
 package assistant
 
 import (
+	"aisu.ai/api/v2/internal/assistant/chat"
+	"aisu.ai/api/v2/internal/assistant/task"
+	"aisu.ai/api/v2/internal/user"
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"github.com/google/uuid"
+	openai "github.com/sashabaranov/go-openai"
 	"log/slog"
 	"os"
 	"strings"
 	"time"
-	"uuid"
-
-	"aisu.ai/api/v2/internal/assistant/chat"
-	"aisu.ai/api/v2/internal/assistant/task"
-	"aisu.ai/api/v2/internal/user"
-	openai "github.com/sashabaranov/go-openai"
 )
 
 // The initial message to be
@@ -76,7 +74,7 @@ func (assistant *Assistant) getInitialMessage(objective task.Objective) (*chat.M
 
 func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error) {
 	assistant.Chat.Append(message)
-	assistantMessage, err := assistant.requestMessageResponseFromModel()
+	assistantMessage, err := assistant.promptModel()
 	if err != nil {
 		errMsg := "An error occurred while requesting a response from the model"
 		slog.Error(errMsg, "error", err)
@@ -174,10 +172,10 @@ func loadDescription() error {
 // not be read.
 func loadTaskInitialMessages() error {
 	filePathByObjective := map[task.Objective]string{
-		task.ObjectiveGoalCreation:      "resources/objectives/goal_creation/initial-message.txt",
-		task.ObjectiveMilestoneCreation: "resources/objectives/milestone_creation/initial-message.txt",
-		task.ObjectiveScheduleCreation:  "resources/objectives/schedule_creation/initial-message.txt",
-		task.ObjectiveChat:              "resources/objectives/chat/initial-message.txt",
+		task.ObjectiveGoalCreation:      "resources/assistant/objectives/goal_creation/initial-message.txt",
+		task.ObjectiveMilestoneCreation: "resources/assistant/objectives/milestone_creation/initial-message.txt",
+		task.ObjectiveScheduleCreation:  "resources/assistant/objectives/schedule_creation/initial-message.txt",
+		task.ObjectiveChat:              "resources/assistant/objectives/chat/initial-message.txt",
 	}
 
 	for objective, filePath := range filePathByObjective {
