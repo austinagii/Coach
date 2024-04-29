@@ -73,6 +73,10 @@ func NewAssistant(
 	return assistant, nil
 }
 
+// Respond provides a reply message to the given message or an error if one occurrs.
+//
+// Respond takses into account information about the user to provide a context
+// sensitive response to the given message.
 func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error) {
 	assistant.Chat.Append(message)
 	assistantMessage, err := assistant.promptModel()
