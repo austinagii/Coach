@@ -34,7 +34,7 @@ type Assistant struct {
 	client      *openai.Client `json:"-"`
 }
 
-// NewAssistant creates an assistant to complete the specified task.
+// NewAssistant creates an assistant to complete a given task.
 //
 // When a new assistant is created, it is initalized with a description
 // and initial chat message based on the specified task. The description
