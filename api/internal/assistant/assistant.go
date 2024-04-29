@@ -26,12 +26,13 @@ var chatPromptByObjective = map[task.Objective]string{}
 // by wrapping an OpenAI model via the `openai.Client` struct and prompts
 // that model to produce a response to a given message.
 type Assistant struct {
-	Id          string         `json:"id" bson:"_id"`
-	Task        *task.Task     `json:"task"`
-	description string         `json:"-"`
-	User        *user.User     `json:"-"`
-	Chat        *chat.Chat     `json:"chat"`
-	client      *openai.Client `json:"-"`
+	Id                      string                           `json:"id" bson:"_id"`
+	Task                    *task.Task                       `json:"task"`
+	description             string                           `json:"-"`
+	User                    *user.User                       `json:"-"`
+	Chat                    *chat.Chat                       `json:"chat"`
+	client                  *openai.Client                   `json:"-"`
+	modelExchangeRepository *LanguageModelExchangeRepository `json:"-"`
 }
 
 // NewAssistant creates an assistant to complete a given task.
@@ -43,12 +44,14 @@ type Assistant struct {
 // message relevant to the task's objective.
 func NewAssistant(
 	openaiClient *openai.Client,
+	modelExchangeRepository *LanguageModelExchangeRepository,
 	task *task.Task,
 ) (*Assistant, error) {
 	// TODO: Add checks to ensure the client is available for use.
 	assistant := &Assistant{
-		client: openaiClient,
-		Task:   task,
+		client:                  openaiClient,
+		modelExchangeRepository: modelExchangeRepository,
+		Task:                    task,
 	}
 
 	chatPromptText, ok := chatPromptByObjective[task.Objective]
@@ -125,7 +128,7 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 	assistantMessageText := resp.Choices[0].Message.Content
 
 	// Fire and forget the exchange audit. Success here is't critical
-	go modelExchangeRepository.Save(
+	go assistant.modelExchangeRepository.Save(
 		exchangeId,
 		systemMessageText,
 		userMessageText,
