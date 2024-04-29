@@ -16,7 +16,12 @@ const (
 	ObjectiveChat              Objective = "chat"
 )
 
-var availableObjectives = []Objective{ObjectiveGoalCreation, ObjectiveMilestoneCreation, ObjectiveScheduleCreation, ObjectiveChat}
+var availableObjectives = []Objective{
+	ObjectiveGoalCreation,
+	ObjectiveMilestoneCreation,
+	ObjectiveScheduleCreation,
+	ObjectiveChat,
+}
 var descriptionByObjective = map[Objective]string{}
 
 func LoadObjectiveDescriptions() error {
@@ -30,7 +35,8 @@ func LoadObjectiveDescriptions() error {
 	for objective, descriptionFile := range descriptionFileByObjective {
 		fileContents, err := os.ReadFile(descriptionFile)
 		if err != nil {
-			err = fmt.Errorf("Description file for task: '%s' could not be found at location: '%s'", objective, taskDescriptionFile, err)
+			errMsg := "Description file for task: '%s' could not be found at location: '%s'"
+			err = fmt.Errorf(errMsg, objective, descriptionFile, err)
 			return err
 		}
 		descriptionByObjective[objective] = string(fileContents)
