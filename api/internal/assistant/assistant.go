@@ -18,6 +18,28 @@ import (
 // Maps objectives to tailored initial messages for starting conversations.
 var chatPromptByObjective = map[task.Objective]string{}
 
+// initiAssistant loads the chat prompt defined for each objective from disk,
+// returning an error if the file could not be
+func initAssistant() error {
+	filePathByObjective := map[task.Objective]string{
+		task.ObjectiveGoalCreation:      "resources/assistant/objectives/goal_creation/initial-message.txt",
+		task.ObjectiveMilestoneCreation: "resources/assistant/objectives/milestone_creation/initial-message.txt",
+		task.ObjectiveScheduleCreation:  "resources/assistant/objectives/schedule_creation/initial-message.txt",
+		task.ObjectiveChat:              "resources/assistant/objectives/chat/initial-message.txt",
+	}
+
+	for objective, filePath := range filePathByObjective {
+		fileContents, err := os.ReadFile(filePath)
+		if err != nil {
+			errMsg := "An error occurred while reading the chat prompt file for objective"
+			slog.Error(errMsg, "objective", objective, "error", err)
+			return fmt.Errorf("%s '%s': %w", errMsg, objective, err)
+		}
+		chatPromptByObjective[objective] = string(fileContents)
+	}
+	return nil
+}
+
 // Assistant is an interactive agent responsible for completing a specified
 // task by sending and receiving text based messages.
 //
@@ -147,27 +169,4 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 	return assistantMessage, nil
-}
-
-// loadChatPrompts loads the chat prompts used by a newly created assistant to
-// start a conversation from disk, returning an error if the file could not be
-// read.
-func loadChatPrompts() error {
-	filePathByObjective := map[task.Objective]string{
-		task.ObjectiveGoalCreation:      "resources/assistant/objectives/goal_creation/initial-message.txt",
-		task.ObjectiveMilestoneCreation: "resources/assistant/objectives/milestone_creation/initial-message.txt",
-		task.ObjectiveScheduleCreation:  "resources/assistant/objectives/schedule_creation/initial-message.txt",
-		task.ObjectiveChat:              "resources/assistant/objectives/chat/initial-message.txt",
-	}
-
-	for objective, filePath := range filePathByObjective {
-		fileContents, err := os.ReadFile(filePath)
-		if err != nil {
-			errMsg := fmt.Sprintf("An error occurred while reading the initial message file for objective '%s'", objective)
-			slog.Error(errMsg, "error", err)
-			return fmt.Errorf("%s: %w", errMsg, err)
-		}
-		chatPromptByObjective[objective] = string(fileContents)
-	}
-	return nil
 }
