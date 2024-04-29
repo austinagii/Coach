@@ -15,7 +15,8 @@ import (
 	"time"
 )
 
-var initialMessageByOjective = map[task.Objective]string{}
+// Maps objectives to tailored initial messages for starting conversations.
+var chatPromptByObjective = map[task.Objective]string{}
 
 // Assistant is an interactive agent responsible for completing a specified
 // task by sending and receiving text based messages.
@@ -25,19 +26,12 @@ var initialMessageByOjective = map[task.Objective]string{}
 // by wrapping an OpenAI model via the `openai.Client` struct and prompts
 // that model to produce a response to a given message.
 type Assistant struct {
-	Id          string     `json:"id" bson:"_id"`
-	Task        *task.Task `json:"task"`
-	description string     `json:"-"`
-	// Want to make the user struct readonly so that the assistant doesn't
-	// update the users goals accidentally. But would still like the User
-	// description to be updated as the assistant interacts with the user.
-	User *user.User `json:"-"`
-	// Each time a message is sent to openai that full prompt and response
-	// should be saved to the database for auditing. Each time a prompt is sent
-	// a unique id should be generated and the corresponding chat message
-	// produced should be linked back to that prompt's ID.
-	Chat   *chat.Chat     `json:"chat"`
-	client *openai.Client `json:"-"`
+	Id          string         `json:"id" bson:"_id"`
+	Task        *task.Task     `json:"task"`
+	description string         `json:"-"`
+	User        *user.User     `json:"-"`
+	Chat        *chat.Chat     `json:"chat"`
+	client      *openai.Client `json:"-"`
 }
 
 // NewAssistant creates an assistant to complete the specified task.
@@ -57,14 +51,14 @@ func NewAssistant(
 		Task:   task,
 	}
 
-	initialMessageText, ok := initialMessageByOjective[task.Objective]
+	chatPromptText, ok := chatPromptByObjective[task.Objective]
 	if !ok {
 		errorMsg := "No initial message found for objective"
 		slog.Error(errorMsg, "objective", task.Objective.String())
 		fmt.Errorf("%s '%s'", errorMsg, task.Objective.String())
 	}
-	initialMessage := chat.NewAssistantMessage(initialMessageText)
-	assistant.Chat.Append(initialMessage)
+	chatPrompt := chat.NewAssistantMessage(chatPromptText)
+	assistant.Chat.Append(chatPrompt)
 	return assistant, nil
 }
 
@@ -152,11 +146,10 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 	return assistantMessage, nil
 }
 
-// loadTaskInitialMessages loads the first message to be used by a newly created assistant for each objective.
-//
-// Each message is loaded from it's config file and an error is returned if the message file could
-// not be read.
-func loadTaskInitialMessages() error {
+// loadChatPrompts loads the chat prompts used by a newly created assistant to
+// start a conversation from disk, returning an error if the file could not be
+// read.
+func loadChatPrompts() error {
 	filePathByObjective := map[task.Objective]string{
 		task.ObjectiveGoalCreation:      "resources/assistant/objectives/goal_creation/initial-message.txt",
 		task.ObjectiveMilestoneCreation: "resources/assistant/objectives/milestone_creation/initial-message.txt",
@@ -171,7 +164,7 @@ func loadTaskInitialMessages() error {
 			slog.Error(errMsg, "error", err)
 			return fmt.Errorf("%s: %w", errMsg, err)
 		}
-		initialMessageByOjective[objective] = string(fileContents)
+		chatPromptByObjective[objective] = string(fileContents)
 	}
 	return nil
 }
