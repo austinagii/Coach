@@ -1,6 +1,6 @@
 package chat
 
-const DefaultChatMessageLimit int = 10
+const defaultChatMessageLimit int = 20
 
 type Chat struct {
 	Id           string     `json:"-" bson:"_id"`
