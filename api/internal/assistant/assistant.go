@@ -157,20 +157,6 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 	return assistantMessage, nil
 }
 
-// loadDescription loads the agent's description from the description file.
-func loadDescription() error {
-	filePath := "resources/assistant/description.txt"
-	fileContents, err := os.ReadFile(filePath)
-	if err != nil {
-		errMsg := "An error occurred while attempting to read the assistant description file"
-		slog.Error(errMsg, "error", err)
-		return fmt.Errorf("%s: %w", filePath, err)
-	}
-
-	assistantDescription = string(fileContents)
-	return nil
-}
-
 // loadTaskInitialMessages loads the first message to be used by a newly created assistant for each objective.
 //
 // Each message is loaded from it's config file and an error is returned if the message file could
