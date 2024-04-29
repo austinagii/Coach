@@ -55,21 +55,22 @@ type Assistant struct {
 func NewAssistant(
 	openaiClient *openai.Client,
 	task *task.Task,
-) *Assistant {
+) (*Assistant, error) {
+	// TODO: Add checks to ensure the client is available for use.
 	assistant := &Assistant{
 		client: openaiClient,
 		Task:   task,
 	}
-	return assistant
-}
 
-func (assistant *Assistant) getInitialMessage(objective task.Objective) (*chat.Message, error) {
-	initialMessageText, ok := initialMessageByOjective[objective]
+	initialMessageText, ok := initialMessageByOjective[task.Objective]
 	if !ok {
-		err := fmt.Errorf("No initial message found for task '%s'", assistant.task.Objective)
-		return chat.NewEmptyAssistantMessage(), err
+		errorMsg := "No initial message found for objective"
+		slog.Error(errorMsg, "objective", task.Objective.String())
+		fmt.Errorf("%s '%s'", errorMsg, task.Objective.String())
 	}
-	return chat.NewAssistantMessage(initialMessageText), nil
+	initialMessage := chat.NewAssistantMessage(initialMessageText)
+	assistant.Chat.Append(initialMessage)
+	return assistant, nil
 }
 
 func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error) {
