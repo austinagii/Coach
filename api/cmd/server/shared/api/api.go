@@ -1,12 +1,16 @@
 package api
 
-import ()
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"log/slog"
+)
 
 type ErrorCode string
 
 const (
-	InternalError  ErrorCode = "internal_error"
-	InvalidRequest ErrorCode = "invalid_request"
+	ErrorCodeGeneralError ErrorCode = "gen_server_Error"
+	ErrorCodeBadRequest   ErrorCode = "bad_request"
 )
 
 type APIError struct {
@@ -19,4 +23,18 @@ func NewApiError(code ErrorCode, message string) *APIError {
 		Code:    string(code),
 		Message: message,
 	}
+}
+
+func BindApiErrorResponse(
+	c *gin.Context,
+	errorMessage string,
+	statusCode int,
+	errorCode ErrorCode,
+	err error,
+) {
+	slog.Error(errorMessage, "error", err)
+	c.IndentedJSON(statusCode, NewApiError(
+		errorCode,
+		fmt.Errorf("%s: %w", errorMessage, err).Error(),
+	))
 }

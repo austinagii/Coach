@@ -1,63 +1,52 @@
 package main
 
 import (
-	"aisu.ai/api/v2/cmd/server/shared/middleware"
-	"aisu.ai/api/v2/internal/assistant"
 	"context"
 	"fmt"
+	"log"
+	"log/slog"
+	"os"
+
+	"aisu.ai/api/v2/cmd/server/shared/middleware"
+	"aisu.ai/api/v2/internal/assistant"
+
 	"github.com/gin-gonic/gin"
 	openai "github.com/sashabaranov/go-openai"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
-	"os"
 )
 
-var openaiClient *openai.Client = openai.NewClient(os.Getenv("OPENAI_API_KEY"))
-var dbClient *mongo.Client
+var openaiClient *openai.Client
+var database *mongo.Database
 
-func main() {
-	router := gin.Default()
-
-	router.Use(middleware.CorsMiddleware())
-
-	router.POST("/users", CreateUser)
-	router.POST("/users/:user_id/goals", nil)
-	router.POST("/users/:user_id/goals/:goal_id/milestones", nil)
-	router.POST("/chats", CreateChat)
-	router.POST("/chats/:id/messages", HandleUserMessage)
-
-	router.Run("0.0.0.0:8080")
-}
+var modelExchangeRepository *assistant.LanguageModelExchangeRepository
+var assistantRepository *assistant.AssistantRepository
 
 func init() {
-	if err := initializeStaticData(); err != nil {
+	var err error
+
+	openaiClient, err = initializeOpenaiClient()
+	if err != nil {
+		slog.Error("An error occurred while initializing the openai client", "error", err)
+		os.Exit(1)
+	}
+
+	database, err = initializeDatabaseConnection()
+	if err != nil {
+		slog.Error("An error occurred while initializing the mongo database connection", "error", err)
+		os.Exit(1)
+	}
+
+	if err := assistant.InitAssistants(); err != nil {
 		log.Fatalf("An error occurred while initializing static data: %v", err)
 	}
 
-	client, err := initializeDatabaseConnection()
-	if err != nil {
-		log.Fatalf("An error occurred while initializing the database connection: %v", err)
-	}
-	dbClient = client
+	modelExchangeRepository = assistant.NewLanguageModelExchangeRepository(database)
+	assistantRepository = assistant.NewAssistantRepository(database)
 }
 
-func initializeStaticData() error {
-	if err := LoadObjectiveDescriptions(); err != nil {
-		return err
-	}
-	if err := LoadTaskInitialMessages(); err != nil {
-		return err
-	}
-	if err := assistant.LoadTasks(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func initializeDatabaseConnection() (*mongo.Client, error) {
+func initializeDatabaseConnection() (*mongo.Database, error) {
 	clientOptions := options.Client().ApplyURI("mongodb://host.docker.internal:27017")
-	log.Println("Connecting to MongoDB")
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MongoDB: %v", err)
@@ -68,5 +57,27 @@ func initializeDatabaseConnection() (*mongo.Client, error) {
 		return nil, fmt.Errorf("failed to ping MongoDB: %v", err)
 	}
 	log.Println("Successfully connected to MongoDB")
-	return client, nil
+	return client.Database("aisu"), nil
+}
+
+func initializeOpenaiClient() (*openai.Client, error) {
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return nil, fmt.Errorf("No environment variable defined for OpenAI API key")
+	}
+	return openai.NewClient(apiKey), nil
+}
+
+func main() {
+	router := gin.Default()
+
+	router.Use(middleware.CorsMiddleware())
+
+	router.POST("/users", nil)
+	router.GET("/users/:user_id", nil)
+
+	router.POST("/chats", CreateChat)
+	router.POST("/chats/:id/messages", HandleUserMessage)
+
+	router.Run("0.0.0.0:8080")
 }

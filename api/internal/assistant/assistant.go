@@ -20,15 +20,20 @@ var chatPromptByObjective = map[task.Objective]string{}
 
 // initiAssistant loads the chat prompt defined for each objective from disk,
 // returning an error if the file could not be
-func initAssistant() error {
+func InitAssistants() error {
+	if err := task.LoadObjectiveDescriptions(); err != nil {
+		return err
+	}
+
 	filePathByObjective := map[task.Objective]string{
-		task.ObjectiveGoalCreation:      "resources/assistant/objectives/goal_creation/initial-message.txt",
-		task.ObjectiveMilestoneCreation: "resources/assistant/objectives/milestone_creation/initial-message.txt",
-		task.ObjectiveScheduleCreation:  "resources/assistant/objectives/schedule_creation/initial-message.txt",
-		task.ObjectiveChat:              "resources/assistant/objectives/chat/initial-message.txt",
+		task.ObjectiveGoalCreation:      "../../resources/assistant/objectives/goal_creation/initial-message.txt",
+		task.ObjectiveMilestoneCreation: "../../resources/assistant/objectives/milestone_creation/initial-message.txt",
+		task.ObjectiveScheduleCreation:  "../../resources/assistant/objectives/schedule_creation/initial-message.txt",
+		task.ObjectiveChat:              "../../resources/assistant/objectives/chat/initial-message.txt",
 	}
 
 	for objective, filePath := range filePathByObjective {
+		slog.Error("Loading prompt for objective", "objective", objective)
 		fileContents, err := os.ReadFile(filePath)
 		if err != nil {
 			errMsg := "An error occurred while reading the chat prompt file for objective"
@@ -37,6 +42,7 @@ func initAssistant() error {
 		}
 		chatPromptByObjective[objective] = string(fileContents)
 	}
+
 	return nil
 }
 
@@ -48,7 +54,7 @@ func initAssistant() error {
 // by wrapping an OpenAI model via the `openai.Client` struct and prompts
 // that model to produce a response to a given message.
 type Assistant struct {
-	Id                      string                           `json:"id" bson:"_id"`
+	Id                      string                           `json:"id" bson:"_id,omitempty"`
 	Task                    *task.Task                       `json:"task"`
 	description             string                           `json:"-"`
 	User                    *user.User                       `json:"-"`
@@ -74,13 +80,17 @@ func NewAssistant(
 		client:                  openaiClient,
 		modelExchangeRepository: modelExchangeRepository,
 		Task:                    task,
+		Chat:                    chat.NewChat(),
 	}
 
 	chatPromptText, ok := chatPromptByObjective[task.Objective]
+	for key := range chatPromptByObjective {
+		slog.Error("Found key", "key", key)
+	}
 	if !ok {
 		errorMsg := "No initial message found for objective"
 		slog.Error(errorMsg, "objective", task.Objective.String())
-		fmt.Errorf("%s '%s'", errorMsg, task.Objective.String())
+		return nil, fmt.Errorf("%s '%s'", errorMsg, task.Objective.String())
 	}
 	chatPrompt := chat.NewAssistantMessage(chatPromptText)
 	assistant.Chat.Append(chatPrompt)

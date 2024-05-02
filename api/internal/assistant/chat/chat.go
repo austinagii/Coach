@@ -1,6 +1,6 @@
 package chat
 
-const defaultChatMessageLimit int = 20
+const DefaultChatMessageLimit int = 20
 
 type Chat struct {
 	Id           string     `json:"-" bson:"_id"`
@@ -10,8 +10,8 @@ type Chat struct {
 
 func NewChat() *Chat {
 	return &Chat{
-		Messages:     make([]*Message, 0),
-		messageLimit: 10,
+		Messages:     make([]*Message, DefaultChatMessageLimit),
+		messageLimit: DefaultChatMessageLimit,
 	}
 }
 
@@ -30,4 +30,10 @@ func (c *Chat) Append(message *Message) *Message {
 // GetLastMessage returns the most recent message in the chat.
 func (c *Chat) GetLastMessage() *Message {
 	return c.Messages[len(c.Messages)-1]
+}
+
+// TODO: Add a way to identify and return new messages
+// could be as simple as adding a 'is_new' flag to each message
+func (c *Chat) GetNewMessages() []*Message {
+	return make([]*Message, 1)
 }

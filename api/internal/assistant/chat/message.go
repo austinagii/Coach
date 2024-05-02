@@ -6,16 +6,16 @@ import (
 )
 
 type Message struct {
-	Sender    Sender    `json:"sender" bson:"sender"`
-	Text      string    `json:"text" bson:"text"`
-	CreatedAt time.Time `json:"-" bson:"created_at"`
+	Sender    Sender `json:"sender" bson:"sender"`
+	Text      string `json:"text" bson:"text"`
+	CreatedAt int64  `json:"-" bson:"created_at"`
 }
 
 func newMessage(sender Sender, text string) *Message {
 	return &Message{
 		Sender:    sender,
 		Text:      text,
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: time.Now().UnixMilli(),
 	}
 }
 

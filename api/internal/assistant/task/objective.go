@@ -3,6 +3,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -26,18 +27,18 @@ var descriptionByObjective = map[Objective]string{}
 
 func LoadObjectiveDescriptions() error {
 	descriptionFileByObjective := map[Objective]string{
-		ObjectiveGoalCreation:      "resources/tasks/goal_creation/description.txt",
-		ObjectiveMilestoneCreation: "resources/tasks/milestone_creation/description.txt",
-		ObjectiveScheduleCreation:  "resources/tasks/schedule_creation/description.txt",
-		ObjectiveChat:              "resources/tasks/chat/description.txt",
+		ObjectiveGoalCreation:      "../../resources/assistant/objectives/goal_creation/description.txt",
+		ObjectiveMilestoneCreation: "../../resources/assistant/objectives/milestone_creation/description.txt",
+		ObjectiveScheduleCreation:  "../../resources/assistant/objectives/schedule_creation/description.txt",
+		ObjectiveChat:              "../../resources/assistant/objectives/chat/description.txt",
 	}
 
 	for objective, descriptionFile := range descriptionFileByObjective {
 		fileContents, err := os.ReadFile(descriptionFile)
 		if err != nil {
-			errMsg := "Description file for task: '%s' could not be found at location: '%s'"
-			err = fmt.Errorf(errMsg, objective, descriptionFile, err)
-			return err
+			errMsg := "An error occurred while loading the objective's description file"
+			slog.Error(errMsg, "objective", objective, "error", err)
+			return fmt.Errorf("%s: %w", errMsg, err)
 		}
 		descriptionByObjective[objective] = string(fileContents)
 	}
@@ -86,7 +87,7 @@ func (o *Objective) UnmarshalJSON(data []byte) error {
 
 func allAvailableObjectiveStrings() string {
 	objectives := make([]string, 0, len(availableObjectives))
-	for obj := range availableObjectives {
+	for _, obj := range availableObjectives {
 		objectives = append(objectives, fmt.Sprintf("'%s'", obj))
 	}
 	return strings.Join(objectives, ", ")

@@ -6,8 +6,8 @@ import (
 )
 
 type Task struct {
-	Objective  Objective `json:"objective"`
-	IsComplete bool      `json:"is_complete"`
+	Objective  Objective `json:"objective" bson:"objective"`
+	IsComplete bool      `json:"is_complete" bson:"is_complete"`
 	TargetId   string    `json:"target_id,omitempty"`
 }
 

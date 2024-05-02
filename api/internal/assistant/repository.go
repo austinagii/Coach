@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+
+	"aisu.ai/api/v2/internal/assistant/chat"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
-	"log/slog"
 )
 
 type AssistantRepository struct {
@@ -22,52 +23,29 @@ func NewAssistantRepository(database *mongo.Database) *AssistantRepository {
 	}
 }
 
-func (r *AssistantRepository) Save(assistant *Assistant) {
+func (r *AssistantRepository) Save(assistant *Assistant) (*Assistant, error) {
+	if r.collection == nil {
+		slog.Warn("Collection not initialized correctly")
+	}
 	result, err := r.collection.InsertOne(context.TODO(), assistant)
 	if err != nil {
-		log.Fatal(err)
+		errMsg := "An error occurred while inserting the assistant into the database"
+		slog.Error(errMsg, "error", err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 
 	insertedID, ok := result.InsertedID.(primitive.ObjectID)
 	if !ok {
-		log.Fatal("InsertedID is not an ObjectID")
+		errMsg := "An error occurred while converting the assistant's ID to a mongo object ID"
+		slog.Error(errMsg, "error", err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 
 	assistant.Id = insertedID.Hex()
-	return
+	return assistant, nil
 }
 
-func LoadAssistant(chatId string) *Assistant {
-	assistant := &Assistant{}
-	assistant.Chat = assistant.repository.Get(chatId)
-	assistant.Chat.Id = chatId
-
-	lastTask := assistant.Chat.GetLastMessage().Task
-	if lastTask.IsComplete {
-		var currentTaskType TaskType
-		switch lastTask.TaskType {
-		case TaskTypeGoalCreation:
-			currentTaskType = TaskTypeMilestoneCreation
-		case TaskTypeMilestoneCreation:
-			currentTaskType = TaskTypeScheduleCreation
-		case TaskTypeScheduleCreation:
-			currentTaskType = TaskTypeChat
-		}
-		assistant.SetTask(nextTask)
-	} else {
-		assistant.SetTask(assistant.Chat.GetLastMessage().Task)
-	}
-
-	log.Print("Assistant defined")
-	log.Printf("Loaded chat: %v", assistant.Chat)
-	if err := assistant.SetTask(task); err != nil {
-		log.Print("Here")
-		log.Fatal(err)
-	}
-	return assistant
-}
-
-func (r *AssistantRepository) Get(id string, messageLimit int) (*Assistant, error) {
+func (r *AssistantRepository) Get(id string) (*Assistant, error) {
 	assistantId, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		errMsg := "Failed to convert hex value to mongo objectID"
@@ -78,12 +56,9 @@ func (r *AssistantRepository) Get(id string, messageLimit int) (*Assistant, erro
 	// Find the assistant with the specified id and return it and the
 	// most recent chat messages up to the message limit.
 	filter := bson.M{"_id": assistantId}
-	options := options.FindOne()
-	if messageLimit == -1 {
-		options.SetProjection(bson.M{
-			"messages": bson.M{"$slice": -messageLimit},
-		})
-	}
+	options := options.FindOne().SetProjection(bson.M{
+		"messages": bson.M{"$slice": -chat.DefaultChatMessageLimit},
+	})
 
 	assistant := &Assistant{}
 	err = r.collection.FindOne(context.TODO(), filter, options).Decode(assistant)

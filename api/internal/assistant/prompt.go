@@ -28,7 +28,7 @@ type MilestoneCreationResponse struct {
 	Goal *user.Goal `json:"goal"`
 }
 
-type ScheduleCreationResponse struct {
-	ModelResponse
-	Goal *user.Schedule `json:"goal"`
-}
+// type ScheduleCreationResponse struct {
+// 	ModelResponse
+// 	Goal *user.Schedule `json:"goal"`
+// }
