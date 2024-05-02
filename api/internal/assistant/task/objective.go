@@ -45,7 +45,7 @@ func LoadObjectiveDescriptions() error {
 	return nil
 }
 
-func (o Objective) Description() (string, error) {
+func (o Objective) description() (string, error) {
 	description, ok := descriptionByObjective[o]
 	if !ok {
 		return "", fmt.Errorf("No description found for objective '%s'", o)

@@ -7,9 +7,9 @@ import (
 )
 
 type ChatPrompt struct {
-	user *user.User
-	task *task.Task
-	chat *chat.Chat
+	User *user.User `json:"user"`
+	Task *task.Task `json:"task"`
+	Chat *chat.Chat `json:"chat"`
 }
 
 type ModelResponse struct {

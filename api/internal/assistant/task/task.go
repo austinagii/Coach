@@ -24,12 +24,11 @@ func NewTask(objective Objective, targetId string) *Task {
 }
 
 // Description returns the description of the task, dynamically formatted based on the objective.
-func (t Task) Description() (string, error) {
-	description, err := t.Objective.Description()
+func (t Task) Description() string {
+	description, err := t.Objective.description()
 	if err != nil {
-		const errMsg = "Failed to retrieve objective description"
-		slog.Error(errMsg, "error", err)
-		return "", fmt.Errorf("%s: %w", errMsg, err)
+		slog.Error("Failed to retrieve objective description", "error", err)
+		return ""
 	}
 
 	// Format the description of the milestone creation objective
@@ -39,5 +38,5 @@ func (t Task) Description() (string, error) {
 		description = fmt.Sprintf(description, t.TargetId)
 	}
 
-	return description, nil
+	return description
 }

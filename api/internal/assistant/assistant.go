@@ -15,36 +15,11 @@ import (
 	"time"
 )
 
+// The shared description of all assistants excluding task info.
+var assistantDescription string
+
 // Maps objectives to tailored initial messages for starting conversations.
 var chatPromptByObjective = map[task.Objective]string{}
-
-// initiAssistant loads the chat prompt defined for each objective from disk,
-// returning an error if the file could not be
-func InitAssistants() error {
-	if err := task.LoadObjectiveDescriptions(); err != nil {
-		return err
-	}
-
-	filePathByObjective := map[task.Objective]string{
-		task.ObjectiveGoalCreation:      "../../resources/assistant/objectives/goal_creation/initial-message.txt",
-		task.ObjectiveMilestoneCreation: "../../resources/assistant/objectives/milestone_creation/initial-message.txt",
-		task.ObjectiveScheduleCreation:  "../../resources/assistant/objectives/schedule_creation/initial-message.txt",
-		task.ObjectiveChat:              "../../resources/assistant/objectives/chat/initial-message.txt",
-	}
-
-	for objective, filePath := range filePathByObjective {
-		slog.Error("Loading prompt for objective", "objective", objective)
-		fileContents, err := os.ReadFile(filePath)
-		if err != nil {
-			errMsg := "An error occurred while reading the chat prompt file for objective"
-			slog.Error(errMsg, "objective", objective, "error", err)
-			return fmt.Errorf("%s '%s': %w", errMsg, objective, err)
-		}
-		chatPromptByObjective[objective] = string(fileContents)
-	}
-
-	return nil
-}
 
 // Assistant is an interactive agent responsible for completing a specified
 // task by sending and receiving text based messages.
@@ -56,11 +31,25 @@ func InitAssistants() error {
 type Assistant struct {
 	Id                      string                           `json:"id" bson:"_id,omitempty"`
 	Task                    *task.Task                       `json:"task"`
-	description             string                           `json:"-"`
 	User                    *user.User                       `json:"-"`
 	Chat                    *chat.Chat                       `json:"chat"`
 	client                  *openai.Client                   `json:"-"`
 	modelExchangeRepository *LanguageModelExchangeRepository `json:"-"`
+}
+
+// initiAssistant loads the chat prompt defined for each objective from disk,
+// returning an error if the file could not be
+func InitAssistants() error {
+	if err := loadAssistantDescription(); err != nil {
+		return err
+	}
+	if err := task.LoadObjectiveDescriptions(); err != nil {
+		return err
+	}
+	if err := loadObjectiveChatPrompts(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // NewAssistant creates an assistant to complete a given task.
@@ -97,6 +86,14 @@ func NewAssistant(
 	return assistant, nil
 }
 
+func (assistant *Assistant) Init(
+	openaiClient *openai.Client,
+	modelExchangeRepository *LanguageModelExchangeRepository,
+) {
+	assistant.client = openaiClient
+	assistant.modelExchangeRepository = modelExchangeRepository
+}
+
 // Respond provides a reply message to the given message or an error if one occurrs.
 //
 // Respond takses into account information about the user to provide a context
@@ -117,7 +114,7 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 	// Generate a unique ID to track this conversational exchange.
 	exchangeId := uuid.NewString()
 
-	systemMessageText := fmt.Sprintf("%s\n\n%s", assistant.description, assistant.Task.Description)
+	systemMessageText := fmt.Sprintf("%s\n\n%s", assistantDescription, assistant.Task.Description())
 	systemMessage := openai.ChatCompletionMessage{
 		Role:    "system",
 		Content: systemMessageText,
@@ -125,9 +122,9 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 
 	// TODO: Marshall to yaml for better model understadability and size/cost reduction.
 	userMessageBytes, err := json.Marshal(ChatPrompt{
-		user: assistant.User,
-		task: assistant.Task,
-		chat: assistant.Chat,
+		User: assistant.User,
+		Task: assistant.Task,
+		Chat: assistant.Chat,
 	})
 	if err != nil {
 		errMsg := "An error occurred while marshalling the chat prompt to JSON"
@@ -139,6 +136,7 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 		Role:    "user",
 		Content: string(userMessageText),
 	}
+	slog.Info(userMessageText)
 
 	initiationTime := time.Now().UnixMilli()
 	resp, err := assistant.client.CreateChatCompletion(
@@ -179,4 +177,34 @@ func (assistant *Assistant) promptModel() (*chat.Message, error) {
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 	return assistantMessage, nil
+}
+
+func loadAssistantDescription() error {
+	fileContents, err := os.ReadFile("../../resources/assistant/description.txt")
+	if err != nil {
+		return fmt.Errorf("An error occurred while loading the assistant description: %w", err)
+	}
+	assistantDescription = string(fileContents)
+	return nil
+}
+
+func loadObjectiveChatPrompts() error {
+	filePathByObjective := map[task.Objective]string{
+		task.ObjectiveGoalCreation:      "../../resources/assistant/objectives/goal_creation/initial-message.txt",
+		task.ObjectiveMilestoneCreation: "../../resources/assistant/objectives/milestone_creation/initial-message.txt",
+		task.ObjectiveScheduleCreation:  "../../resources/assistant/objectives/schedule_creation/initial-message.txt",
+		task.ObjectiveChat:              "../../resources/assistant/objectives/chat/initial-message.txt",
+	}
+
+	for objective, filePath := range filePathByObjective {
+		slog.Error("Loading prompt for objective", "objective", objective)
+		fileContents, err := os.ReadFile(filePath)
+		if err != nil {
+			errMsg := "An error occurred while reading the chat prompt file for objective"
+			slog.Error(errMsg, "objective", objective, "error", err)
+			return fmt.Errorf("%s '%s': %w", errMsg, objective, err)
+		}
+		chatPromptByObjective[objective] = string(fileContents)
+	}
+	return nil
 }

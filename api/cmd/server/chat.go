@@ -63,7 +63,7 @@ func CreateChat(context *gin.Context) {
 }
 
 func HandleUserMessage(context *gin.Context) {
-	slog.Debug("Received a new request to respond to a user message")
+	slog.Debug("Received a new message from a user")
 	userMessage := chat.NewEmptyUserMessage()
 	if err := context.BindJSON(userMessage); err != nil {
 		errMsg := "An error occurred while unmarshalling the request body to a chat message"
@@ -84,6 +84,7 @@ func HandleUserMessage(context *gin.Context) {
 		slog.Error(errMsg)
 		context.IndentedJSON(http.StatusInternalServerError, api.NewApiError(api.ErrorCodeGeneralError, errMsg))
 	}
+	chatAssistant.Init(openaiClient, modelExchangeRepository)
 	assistantMessage, err := chatAssistant.Respond(userMessage)
 	if err != nil {
 		slog.Error("An error occurred while the assistant was responding: %v", err)

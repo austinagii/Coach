@@ -23,6 +23,7 @@ var modelExchangeRepository *assistant.LanguageModelExchangeRepository
 var assistantRepository *assistant.AssistantRepository
 
 func init() {
+	slog.Info("Initializing the application...")
 	var err error
 
 	openaiClient, err = initializeOpenaiClient()
