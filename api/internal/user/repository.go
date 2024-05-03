@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	// "go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -22,13 +23,21 @@ func NewUserRepository(database *mongo.Database) *UserRepository {
 	}
 }
 
-func (r *UserRepository) Create(user *User) error {
-	_, err := r.collection.InsertOne(nil, user)
+func (r *UserRepository) Save(user *User) (*User, error) {
+	result, err := r.collection.InsertOne(nil, user)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	userID, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		errMsg := "An error occurred while converting the user's ID to a mongo object ID"
+		slog.Error(errMsg, "error", err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
+	}
+	user.Id = userID.Hex()
+
+	return user, nil
 }
 
 func (r *UserRepository) Get(id string) (*User, error) {

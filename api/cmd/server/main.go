@@ -9,6 +9,7 @@ import (
 
 	"aisu.ai/api/v2/cmd/server/shared/middleware"
 	"aisu.ai/api/v2/internal/assistant"
+	"aisu.ai/api/v2/internal/user"
 
 	"github.com/gin-gonic/gin"
 	openai "github.com/sashabaranov/go-openai"
@@ -21,6 +22,21 @@ var database *mongo.Database
 
 var modelExchangeRepository *assistant.LanguageModelExchangeRepository
 var assistantRepository *assistant.AssistantRepository
+var userRepository *user.UserRepository
+
+func main() {
+	router := gin.Default()
+
+	router.Use(middleware.CorsMiddleware())
+
+	router.POST("/users", CreateUser)
+	router.GET("/users/:user_id", nil)
+
+	router.POST("/chats", CreateChat)
+	router.POST("/chats/:id/messages", HandleUserMessage)
+
+	router.Run("0.0.0.0:8080")
+}
 
 func init() {
 	slog.Info("Initializing the application...")
@@ -44,6 +60,7 @@ func init() {
 
 	modelExchangeRepository = assistant.NewLanguageModelExchangeRepository(database)
 	assistantRepository = assistant.NewAssistantRepository(database)
+	userRepository = user.NewUserRepository(database)
 }
 
 func initializeDatabaseConnection() (*mongo.Database, error) {
@@ -67,18 +84,4 @@ func initializeOpenaiClient() (*openai.Client, error) {
 		return nil, fmt.Errorf("No environment variable defined for OpenAI API key")
 	}
 	return openai.NewClient(apiKey), nil
-}
-
-func main() {
-	router := gin.Default()
-
-	router.Use(middleware.CorsMiddleware())
-
-	router.POST("/users", nil)
-	router.GET("/users/:user_id", nil)
-
-	router.POST("/chats", CreateChat)
-	router.POST("/chats/:id/messages", HandleUserMessage)
-
-	router.Run("0.0.0.0:8080")
 }
