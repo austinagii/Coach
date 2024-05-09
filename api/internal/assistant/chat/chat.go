@@ -3,14 +3,13 @@ package chat
 const DefaultChatMessageLimit int = 20
 
 type Chat struct {
-	Id           string     `json:"-" bson:"_id"`
 	Messages     []*Message `json:"messages" bson:"messages"`
 	messageLimit int        `json:"-" bson:"-"`
 }
 
 func NewChat() *Chat {
 	return &Chat{
-		Messages:     make([]*Message, DefaultChatMessageLimit),
+		Messages:     make([]*Message, 0, DefaultChatMessageLimit),
 		messageLimit: DefaultChatMessageLimit,
 	}
 }

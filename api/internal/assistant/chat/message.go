@@ -6,9 +6,10 @@ import (
 )
 
 type Message struct {
-	Sender    Sender `json:"sender" bson:"sender"`
-	Text      string `json:"text" bson:"text"`
-	CreatedAt int64  `json:"-" bson:"created_at"`
+	Sender     Sender `json:"sender" bson:"sender"`
+	Text       string `json:"text" bson:"text"`
+	CreatedAt  int64  `json:"-" bson:"created_at"`
+	ExchangeId string `bson:"exchange_id,omitempty"`
 }
 
 func newMessage(sender Sender, text string) *Message {
@@ -31,8 +32,10 @@ func NewEmptyAssistantMessage() *Message {
 	return newMessage(SenderAssistant, "")
 }
 
-func NewAssistantMessage(text string) *Message {
-	return newMessage(SenderAssistant, text)
+func NewAssistantMessage(text string, exchangeId string) *Message {
+	message := newMessage(SenderAssistant, text)
+	message.ExchangeId = exchangeId
+	return message
 }
 
 func (m Message) String() string {

@@ -9,7 +9,7 @@ import (
 type ErrorCode string
 
 const (
-	ErrorCodeGeneralError ErrorCode = "gen_server_Error"
+	ErrorCodeGeneralError ErrorCode = "gen_server_error"
 	ErrorCodeBadRequest   ErrorCode = "bad_request"
 )
 

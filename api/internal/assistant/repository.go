@@ -65,11 +65,10 @@ func (r *AssistantRepository) Get(id string) (*Assistant, error) {
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			slog.Error("No assistant with the specified ID could be found", "id", id, "err", err)
-			fmt.Errorf("No assistant with ID '%s' could be found: %w", id, err)
+			return nil, fmt.Errorf("No assistant with ID '%s' could be found: %w", id, err)
 		}
 		slog.Error("Failed to load the assistant with the specified ID", "id", id, "err", err)
-		fmt.Errorf("Failed to load the assistant with ID '%s': %w", id, err)
-		return nil, err
+		return nil, fmt.Errorf("Failed to load the assistant with ID '%s': %w", id, err)
 	}
 
 	return assistant, nil
@@ -91,8 +90,8 @@ func (r *AssistantRepository) Update(assistant *Assistant, numNewMessages int) (
 		"$set": bson.M{"task": assistant.Task},
 		// Save the new messages.
 		"$push": bson.M{
-			"messages": bson.M{
-				"$each": assistant.Chat.Messages[len(assistant.Chat.Messages)-numNewMessages],
+			"chat.messages": bson.M{
+				"$each": assistant.Chat.Messages[len(assistant.Chat.Messages)-numNewMessages:],
 			},
 		},
 	}
@@ -101,11 +100,10 @@ func (r *AssistantRepository) Update(assistant *Assistant, numNewMessages int) (
 		// TODO: Create a custom 'Not Found' error for assistants.
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			slog.Error("No assistant with the specified ID could be found", "id", assistant.Id, "err", err)
-			fmt.Errorf("No assistant with ID '%s' could be found: %w", id, err)
+			return nil, fmt.Errorf("No assistant with ID '%s' could be found: %w", id, err)
 		}
 		slog.Error("Failed to load the assistant with the specified ID", "id", id, "err", err)
-		fmt.Errorf("Failed to load the assistant with ID '%s': %w", id, err)
-		return nil, err
+		return nil, fmt.Errorf("Failed to load the assistant with ID '%s': %w", id, err)
 	}
 	return assistant, nil
 }

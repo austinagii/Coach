@@ -1,42 +1,48 @@
 package task
 
 import (
-	"fmt"
+	"aisu.ai/api/v2/internal/user"
 	"log/slog"
 )
 
-type Task struct {
-	Objective  Objective `json:"objective" bson:"objective"`
-	IsComplete bool      `json:"is_complete" bson:"is_complete"`
-	TargetId   string    `json:"target_id,omitempty"`
+type Task interface {
+	Objective() Objective
+	Description() string
 }
 
-// NewTask returns a new [Task] with the specified objective.
-// The target ID is optional and should only be specified if the
-// goal is milestone creation and in this case the target ID should
-// be the ID of the goal whose milestones are to be defined.
-func NewTask(objective Objective, targetId string) *Task {
-	return &Task{
-		Objective:  objective,
-		IsComplete: false,
-		TargetId:   targetId,
-	}
+type BaseTask struct {
+	Obj Objective `json:"objective" bson:"objective"`
+}
+
+func (task *BaseTask) Objective() Objective {
+	return task.Obj
 }
 
 // Description returns the description of the task, dynamically formatted based on the objective.
-func (t Task) Description() string {
-	description, err := t.Objective.description()
+func (task *BaseTask) Description() string {
+	description, err := task.Obj.description()
 	if err != nil {
 		slog.Error("Failed to retrieve objective description", "error", err)
 		return ""
 	}
-
-	// Format the description of the milestone creation objective
-	// to include the ID of the goal for which the milestones are
-	// being created
-	if t.Objective == ObjectiveMilestoneCreation {
-		description = fmt.Sprintf(description, t.TargetId)
-	}
-
 	return description
+}
+
+type GoalCreationTask struct {
+	BaseTask `bson:",inline"`
+	Goal     *user.Goal `json:"goal,omitempty" bson:"goal,omitempty"`
+}
+
+func NewGoalCreationTask() *GoalCreationTask {
+	return &GoalCreationTask{BaseTask: BaseTask{Obj: ObjectiveGoalCreation}}
+}
+
+type MilestoneCreationTask struct {
+	BaseTask   `bson:",inline"`
+	GoalId     int               `json:"goal_id" bson:"goal_id"`
+	Milestones []*user.Milestone `json:"milestones,omitempty" bson:"milestones,omitempty"`
+}
+
+func NewMilestoneCreationTask(goalId int) *MilestoneCreationTask {
+	return &MilestoneCreationTask{BaseTask: BaseTask{Obj: ObjectiveMilestoneCreation}, GoalId: goalId}
 }

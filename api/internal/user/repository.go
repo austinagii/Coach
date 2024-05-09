@@ -24,7 +24,7 @@ func NewUserRepository(database *mongo.Database) *UserRepository {
 }
 
 func (r *UserRepository) Save(user *User) (*User, error) {
-	result, err := r.collection.InsertOne(nil, user)
+	result, err := r.collection.InsertOne(context.TODO(), user)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (r *UserRepository) Get(id string) (*User, error) {
 		return nil, err
 	}
 
-	var user *User
+	var user = &User{}
 	err = r.collection.FindOne(
 		context.TODO(),
 		bson.M{"_id": userId},
@@ -64,29 +64,31 @@ func (r *UserRepository) Get(id string) (*User, error) {
 	return user, nil
 }
 
-func (r *UserRepository) Update(id string, user *User) error {
-	userId, err := primitive.ObjectIDFromHex(id)
+func (r *UserRepository) Update(user *User) error {
+	userId, err := primitive.ObjectIDFromHex(user.Id)
 	if err != nil {
-		log.Printf("Failed to convert hex user ID '%s' to a mongo object ID", id)
+		log.Printf("Failed to convert hex user ID '%s' to a mongo object ID", user.Id)
 		return err
 	}
 
-	filter := bson.M{"_id": userId}
-	result, err := r.collection.UpdateOne(context.TODO(), filter, user)
+	result, err := r.collection.UpdateByID(context.TODO(), userId, bson.M{
+		"$set": bson.M{"summary": user.Summary, "goals": user.Goals},
+	})
 	if err != nil {
-		log.Printf("")
+		slog.Error("An error occurred while updating the user", "error", err)
 		return err
 	}
 
 	// Assert that only one user has the specified ID. Throw an error if more than one user
 	// has the same ID to avoid cross contamination
 	if result.MatchedCount != 1 {
-		// TODO: Log and throw error
+		slog.Error("Failed to update user")
+		return fmt.Errorf("Failed to update user with id '%s'", user.Id)
 	}
 
-	if result.UpsertedCount != result.MatchedCount {
-		log.Printf("Failed to identify and/or update user with unique ID: '%s'", id)
-		return errors.New(fmt.Sprintf("Unique user with ID '%s' could not be updated", id))
-	}
+	// if result.UpsertedCount != result.MatchedCount {
+	// 	log.Printf("Failed to identify and/or update user with unique ID: '%s'", user.Id)
+	// 	return errors.New(fmt.Sprintf("Unique user with ID '%s' could not be updated", user.Id))
+	// }
 	return nil
 }
