@@ -1,16 +1,14 @@
 package user
 
 import (
-	// "go.mongodb.org/mongo-driver/bson"
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"log/slog"
-	// "go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"log"
+	"log/slog"
 )
 
 type UserRepository struct {
