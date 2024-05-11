@@ -46,3 +46,12 @@ type MilestoneCreationTask struct {
 func NewMilestoneCreationTask(goalId int) *MilestoneCreationTask {
 	return &MilestoneCreationTask{BaseTask: BaseTask{Obj: ObjectiveMilestoneCreation}, GoalId: goalId}
 }
+
+type ScheduleCreationTask struct {
+	BaseTask `bson:",inline"`
+	Schedule user.DailySchedule `json:"schedule,omitempty" bson:"schedule,omitempty"`
+}
+
+func NewScheduleCreationTask() *ScheduleCreationTask {
+	return &ScheduleCreationTask{BaseTask: BaseTask{Obj: ObjectiveScheduleCreation}}
+}
