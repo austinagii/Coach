@@ -14,11 +14,12 @@ const (
 )
 
 type User struct {
-	Id      string  `json:"id,omitempty" bson:"_id,omitempty"`
-	Name    string  `json:"name" bson:"name"`
-	Gender  Gender  `json:"gender" bson:"gender"`
-	Summary string  `json:"summary,omitempty" bson:"summary,omitempty"`
-	Goals   []*Goal `json:"goals,omitempty" bson:"goals,omitempty"`
+	Id       string        `json:"id,omitempty" bson:"_id,omitempty"`
+	Name     string        `json:"name" bson:"name"`
+	Gender   Gender        `json:"gender" bson:"gender"`
+	Summary  string        `json:"summary,omitempty" bson:"summary,omitempty"`
+	Goals    []*Goal       `json:"goals,omitempty" bson:"goals,omitempty"`
+	Schedule DailySchedule `json:"schedule,omitempty" bson:"schedule,omitempty"`
 }
 
 func NewUser(name string, gender Gender) *User {
