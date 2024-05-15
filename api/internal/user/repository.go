@@ -70,7 +70,7 @@ func (r *UserRepository) Update(user *User) error {
 	}
 
 	result, err := r.collection.UpdateByID(context.TODO(), userId, bson.M{
-		"$set": bson.M{"summary": user.Summary, "goals": user.Goals},
+		"$set": bson.M{"summary": user.Summary, "goals": user.Goals, "schedule": user.Schedule},
 	})
 	if err != nil {
 		slog.Error("An error occurred while updating the user", "error", err)

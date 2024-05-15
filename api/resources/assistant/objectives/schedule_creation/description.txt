@@ -8,11 +8,11 @@ The request's & response's task field should have the following format when the 
 ```json
 {
   "objective": "schedule_creation"  // the current targeted outcome of the conversation
-  "schedule" { // The schedule being created
+  "schedule": { // The schedule being created
     "activities": [ // The timeboxed activities for a given schedule
       {
-        "start_time": "08:00", // The start time of the activity (24 hour time)
-        "end_time": "08:30", // The end time of the activity (24 hour time)
+        "start": "08:00", // The start time of the activity (24 hour time)
+        "end": "08:30", // The end time of the activity (24 hour time)
         "title": "Run a mile",
         "description": "Run a mile in under 10 minutes"
       }

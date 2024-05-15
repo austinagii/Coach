@@ -23,4 +23,4 @@ Once you have provided a set of milestones for the user you should ask them to c
 
 Be as cooperative in this process as possible. If the changes requested by the user would cause the underlying goal to change then the goal should be updated accordingly once the change is confirmed with the user. 
 
-Once the user is ok with the milestones, only then should you set the is_complete field to true.
+Once the user is ok with the milestones, you should set the is_complete field to true and ask the user if they are ready to proceed with creating their schedule.

@@ -1,20 +1,20 @@
 package user
 
-import (
-	"time"
-)
+// import (
+// 	"time"
+// )
 
-// DailySchedule represents a collection of timeboxed tasks that a user
+// DailySchedule represents a collection of timeboxed activities that a user
 // has determined to accomplish.
 type DailySchedule struct {
-	Tasks []ScheduledTask `json:"tasks" bson:"task"`
+	Activities []ScheduledActivity `json:"activities" bson:"activities"`
 }
 
-// ScheduledTask represents a singular timeboxed task that a user wants
-// to accomplish.
-type ScheduledTask struct {
-	Start       time.Time `json:"start" bson:"start"`
-	End         time.Time `json:"end" bson:"end"`
-	Title       string    `json:"title" bson:"title"`
-	Description string    `json:"description" bson:"description"`
+// ScheduledActivity represents a singular timeboxed activity that a user wants
+// to complete.
+type ScheduledActivity struct {
+	Start       string `json:"start" bson:"start"`
+	End         string `json:"end" bson:"end"`
+	Title       string `json:"title" bson:"title"`
+	Description string `json:"description" bson:"description"`
 }

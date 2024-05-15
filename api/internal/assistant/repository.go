@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"aisu.ai/api/v2/internal/assistant/chat"
+	"aisu.ai/api/v2/internal/assistant/task"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -82,13 +83,34 @@ func (r *AssistantRepository) Update(assistant *Assistant, numNewMessages int) (
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 
+	var taskUpdate bson.M
+	switch assistant.Task.Objective() {
+	case task.ObjectiveGoalCreation:
+		t, ok := assistant.Task.(*task.GoalCreationTask)
+		if !ok {
+			return nil, errors.New("Failed to convert task with objective 'goal_creation' to expected struct 'GoalCreationTask'")
+		}
+		taskUpdate = bson.M{"task": t}
+	case task.ObjectiveMilestoneCreation:
+		t, ok := assistant.Task.(*task.MilestoneCreationTask)
+		if !ok {
+			return nil, errors.New("Failed to convert task with objective 'milestone_creation' to expected struct 'MilestoneCreationTask'")
+		}
+		taskUpdate = bson.M{"task": t}
+	case task.ObjectiveScheduleCreation:
+		t, ok := assistant.Task.(*task.ScheduleCreationTask)
+		if !ok {
+			return nil, errors.New("Failed to convert task with objective 'schedule_creation' to expected struct 'ScheduleCreationTask'")
+		}
+		taskUpdate = bson.M{"task": t}
+	}
+
 	// Save the assistant's current task and the specified number of new messages.
 	// In most cases there should only be two new messages per request, one from
 	// the user initiating the exchange and a response from the assistant.
 	update := bson.M{
 		// Save the current the task.
-		"$set": bson.M{"task": assistant.Task},
-		// Save the new messages.
+		"$set": taskUpdate, // Save the new messages.
 		"$push": bson.M{
 			"chat.messages": bson.M{
 				"$each": assistant.Chat.Messages[len(assistant.Chat.Messages)-numNewMessages:],

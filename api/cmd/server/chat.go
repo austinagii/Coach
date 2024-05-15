@@ -147,7 +147,10 @@ func HandleUserMessage(context *gin.Context) {
 	if err != nil {
 		slog.Error("An error occurred while the assistant was responding: %v", err)
 	}
-	assistantRepository.Update(chatAssistant, 2)
+	if _, err := assistantRepository.Update(chatAssistant, 2); err != nil {
+		errMsg := "An error occurred while updating the user"
+		api.BindApiErrorResponse(context, errMsg, http.StatusInternalServerError, api.ErrorCodeGeneralError, err)
+	}
 	if err := userRepository.Update(user); err != nil {
 		errMsg := "An error occurred while updating the user"
 		api.BindApiErrorResponse(context, errMsg, http.StatusInternalServerError, api.ErrorCodeGeneralError, err)

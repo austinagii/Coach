@@ -111,31 +111,43 @@ func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 
-	assistant.User.Summary = modelPrompt.UserSummary
-	if modelPrompt.IsComplete {
-		if modelPrompt.Task.Objective() == task.ObjectiveGoalCreation {
-			t, ok := modelPrompt.Task.(*task.GoalCreationTask)
-			if !ok {
-				return nil, errors.New("Failed to convert task with objective 'goal_creation' to expected struct 'GoalCreationTask'")
-			}
+	switch modelPrompt.Task.Objective() {
+	case task.ObjectiveGoalCreation:
+		t, ok := modelPrompt.Task.(*task.GoalCreationTask)
+		if !ok {
+			return nil, errors.New("Failed to convert task with objective 'goal_creation' to expected struct 'GoalCreationTask'")
+		}
+		assistant.Task = t
+		if modelPrompt.IsComplete {
 			assistant.User.AddNewGoal(t.Goal)
 			assistant.Task = task.NewMilestoneCreationTask(t.Goal.Id)
-		} else if modelPrompt.Task.Objective() == task.ObjectiveMilestoneCreation {
-			task, ok := modelPrompt.Task.(*task.MilestoneCreationTask)
-			if !ok {
-				return nil, errors.New("Failed to convert task with objective 'milestone_creation' to expected struct 'MilestoneCreationTask'")
-			}
-			goal, err := assistant.User.GetGoalById(task.GoalId)
+		}
+	case task.ObjectiveMilestoneCreation:
+		t, ok := modelPrompt.Task.(*task.MilestoneCreationTask)
+		if !ok {
+			return nil, errors.New("Failed to convert task with objective 'milestone_creation' to expected struct 'MilestoneCreationTask'")
+		}
+		assistant.Task = t
+		if modelPrompt.IsComplete {
+			goal, err := assistant.User.GetGoalById(t.GoalId)
 			if err != nil {
 				return nil, err
 			}
-			goal.Milestones = task.Milestones
-		} else {
-			// TODO: Use more descriptive error message.
-			return nil, errors.New("Unsupported objective")
+			goal.Milestones = t.Milestones
+			assistant.Task = task.NewScheduleCreationTask()
+		}
+	case task.ObjectiveScheduleCreation:
+		t, ok := modelPrompt.Task.(*task.ScheduleCreationTask)
+		if !ok {
+			return nil, errors.New("Failed to convert task with objective 'schedule_creation' to expected struct 'ScheduleCreationTask'")
+		}
+		assistant.Task = t
+		if modelPrompt.IsComplete {
+			assistant.User.Schedule = t.Schedule
 		}
 	}
 
+	assistant.User.Summary = modelPrompt.UserSummary
 	assistantMessage := chat.NewAssistantMessage(modelPrompt.ResponseMessage, exchangeId)
 	assistant.Chat.Append(assistantMessage)
 	return assistantMessage, nil
@@ -224,6 +236,12 @@ func (assistant *Assistant) promptModel() (string, *ModelResponse, error) {
 			return "", nil, err
 		}
 		modelResponse.Task = task
+	case task.ObjectiveScheduleCreation:
+		task := &task.ScheduleCreationTask{}
+		if err := json.Unmarshal(tempModelResponse.Task, task); err != nil {
+			return "", nil, err
+		}
+		modelResponse.Task = task
 	default:
 		return "", nil, fmt.Errorf("Unsupported objective")
 	}
@@ -257,6 +275,8 @@ func (assistant *Assistant) UnmarshalBSON(data []byte) error {
 		t = &task.GoalCreationTask{}
 	case task.ObjectiveMilestoneCreation:
 		t = &task.MilestoneCreationTask{}
+	case task.ObjectiveScheduleCreation:
+		t = &task.ScheduleCreationTask{}
 	default:
 		return fmt.Errorf("No task found for objective %s", tempTask.Objective().String())
 	}

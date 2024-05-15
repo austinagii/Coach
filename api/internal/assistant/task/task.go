@@ -49,7 +49,7 @@ func NewMilestoneCreationTask(goalId int) *MilestoneCreationTask {
 
 type ScheduleCreationTask struct {
 	BaseTask `bson:",inline"`
-	Schedule user.DailySchedule `json:"schedule,omitempty" bson:"schedule,omitempty"`
+	Schedule *user.DailySchedule `json:"schedule,omitempty" bson:"schedule,omitempty"`
 }
 
 func NewScheduleCreationTask() *ScheduleCreationTask {
