@@ -4,7 +4,7 @@ import (
 	"aisu.ai/api/v2/cmd/cli/api"
 	"aisu.ai/api/v2/cmd/cli/utils"
 	"bufio"
-	"fmt"
+	// "fmt"
 	"log"
 	"os"
 )
@@ -22,8 +22,28 @@ func main() {
 	}
 	userId, err := api.CreateUser(name)
 	if err != nil {
-		log.Printf("An error occurred while creating a new user: %s\n", err.Error())
+		log.Printf("An error occurred while creating a new user: %s", err.Error())
 		os.Exit(1)
 	}
-	fmt.Printf("User created with ID '%s'\n", userId)
+	chatId, initialMsg, err := api.CreateChat(userId)
+	if err != nil {
+		log.Printf("An error occurred while creating a new user: %s", err.Error())
+		os.Exit(1)
+	}
+	utils.PromptUser(initialMsg)
+
+	for true {
+		userMessage, err := utils.ReadUserInput()
+		if err != nil {
+			log.Printf("An error occurred while reading the user input: %s", err.Error())
+			os.Exit(1)
+		}
+
+		assistantMessage, err := api.Respond(userId, chatId, userMessage)
+		if err != nil {
+			log.Printf("An error occurred while reading the assistant response: %s", err.Error())
+			os.Exit(1)
+		}
+		utils.PromptUser(assistantMessage)
+	}
 }

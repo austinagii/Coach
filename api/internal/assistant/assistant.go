@@ -311,6 +311,7 @@ func loadObjectiveChatPrompts() error {
 	for objective, filePath := range filePathByObjective {
 		slog.Error("Loading prompt for objective", "objective", objective)
 		fileContents, err := os.ReadFile(filePath)
+		fileContents = fileContents[:len(fileContents)-1]
 		if err != nil {
 			errMsg := "An error occurred while reading the chat prompt file for objective"
 			slog.Error(errMsg, "objective", objective, "error", err)
