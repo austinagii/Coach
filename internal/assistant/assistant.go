@@ -1,8 +1,7 @@
 package assistant
 
 import (
-	"aisu.ai/api/v2/internal/assistant/chat"
-	"aisu.ai/api/v2/internal/assistant/task"
+	"aisu.ai/api/v2/internal/chat"
 	"aisu.ai/api/v2/internal/user"
 	"context"
 	"encoding/json"
@@ -21,7 +20,7 @@ import (
 var assistantDescription string
 
 // Maps objectives to tailored initial messages for starting conversations.
-var chatPromptByObjective = map[task.Objective]string{}
+var chatPromptByObjective = map[Objective]string{}
 
 // Assistant is an interactive agent responsible for completing a specified
 // task by sending and receiving text based messages.
@@ -32,7 +31,7 @@ var chatPromptByObjective = map[task.Objective]string{}
 // that model to produce a response to a given message.
 type Assistant struct {
 	Id                      string                           `json:"id" bson:"_id,omitempty"`
-	Task                    task.Task                        `json:"task"`
+	Task                    Task                             `json:"task"`
 	User                    *user.User                       `json:"-"`
 	Chat                    *chat.Chat                       `json:"chat"`
 	client                  *openai.Client                   `json:"-"`
@@ -45,7 +44,7 @@ func InitAssistants() error {
 	if err := loadAssistantDescription(); err != nil {
 		return err
 	}
-	if err := task.LoadObjectiveDescriptions(); err != nil {
+	if err := LoadObjectiveDescriptions(); err != nil {
 		return err
 	}
 	if err := loadObjectiveChatPrompts(); err != nil {
@@ -63,7 +62,7 @@ func InitAssistants() error {
 // message relevant to the task's objective.
 func NewAssistant(
 	user *user.User,
-	task task.Task,
+	task Task,
 	openaiClient *openai.Client,
 	modelExchangeRepository *LanguageModelExchangeRepository,
 ) (*Assistant, error) {
@@ -112,18 +111,18 @@ func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error
 	}
 
 	switch modelPrompt.Task.Objective() {
-	case task.ObjectiveGoalCreation:
-		t, ok := modelPrompt.Task.(*task.GoalCreationTask)
+	case ObjectiveGoalCreation:
+		t, ok := modelPrompt.Task.(*GoalCreationTask)
 		if !ok {
 			return nil, errors.New("Failed to convert task with objective 'goal_creation' to expected struct 'GoalCreationTask'")
 		}
 		assistant.Task = t
 		if modelPrompt.IsComplete {
 			assistant.User.AddNewGoal(t.Goal)
-			assistant.Task = task.NewMilestoneCreationTask(t.Goal.Id)
+			assistant.Task = NewMilestoneCreationTask(t.Goal.Id)
 		}
-	case task.ObjectiveMilestoneCreation:
-		t, ok := modelPrompt.Task.(*task.MilestoneCreationTask)
+	case ObjectiveMilestoneCreation:
+		t, ok := modelPrompt.Task.(*MilestoneCreationTask)
 		if !ok {
 			return nil, errors.New("Failed to convert task with objective 'milestone_creation' to expected struct 'MilestoneCreationTask'")
 		}
@@ -134,10 +133,10 @@ func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error
 				return nil, err
 			}
 			goal.Milestones = t.Milestones
-			assistant.Task = task.NewScheduleCreationTask()
+			assistant.Task = NewScheduleCreationTask()
 		}
-	case task.ObjectiveScheduleCreation:
-		t, ok := modelPrompt.Task.(*task.ScheduleCreationTask)
+	case ObjectiveScheduleCreation:
+		t, ok := modelPrompt.Task.(*ScheduleCreationTask)
 		if !ok {
 			return nil, errors.New("Failed to convert task with objective 'schedule_creation' to expected struct 'ScheduleCreationTask'")
 		}
@@ -224,20 +223,20 @@ func (assistant *Assistant) promptModel() (string, *ModelResponse, error) {
 	modelResponse.UserSummary = tempModelResponse.UserSummary
 	modelResponse.ResponseMessage = tempModelResponse.Response
 	switch modelPrompt.Task.Objective() {
-	case task.ObjectiveGoalCreation:
-		task := &task.GoalCreationTask{}
+	case ObjectiveGoalCreation:
+		task := &GoalCreationTask{}
 		if err := json.Unmarshal(tempModelResponse.Task, task); err != nil {
 			return "", nil, err
 		}
 		modelResponse.Task = task
-	case task.ObjectiveMilestoneCreation:
-		task := &task.MilestoneCreationTask{}
+	case ObjectiveMilestoneCreation:
+		task := &MilestoneCreationTask{}
 		if err := json.Unmarshal(tempModelResponse.Task, task); err != nil {
 			return "", nil, err
 		}
 		modelResponse.Task = task
-	case task.ObjectiveScheduleCreation:
-		task := &task.ScheduleCreationTask{}
+	case ObjectiveScheduleCreation:
+		task := &ScheduleCreationTask{}
 		if err := json.Unmarshal(tempModelResponse.Task, task); err != nil {
 			return "", nil, err
 		}
@@ -264,19 +263,19 @@ func (assistant *Assistant) UnmarshalBSON(data []byte) error {
 		return err
 	}
 
-	tempTask := &task.BaseTask{}
+	tempTask := &BaseTask{}
 	if err := bson.Unmarshal(tempAssistant.Task, tempTask); err != nil {
 		return err
 	}
 	slog.Info("Data: ", "temp task", tempAssistant.Task)
-	var t task.Task
+	var t Task
 	switch tempTask.Objective() {
-	case task.ObjectiveGoalCreation:
-		t = &task.GoalCreationTask{}
-	case task.ObjectiveMilestoneCreation:
-		t = &task.MilestoneCreationTask{}
-	case task.ObjectiveScheduleCreation:
-		t = &task.ScheduleCreationTask{}
+	case ObjectiveGoalCreation:
+		t = &GoalCreationTask{}
+	case ObjectiveMilestoneCreation:
+		t = &MilestoneCreationTask{}
+	case ObjectiveScheduleCreation:
+		t = &ScheduleCreationTask{}
 	default:
 		return fmt.Errorf("No task found for objective %s", tempTask.Objective().String())
 	}
@@ -301,11 +300,11 @@ func loadAssistantDescription() error {
 }
 
 func loadObjectiveChatPrompts() error {
-	filePathByObjective := map[task.Objective]string{
-		task.ObjectiveGoalCreation:      "../../resources/assistant/objectives/goal_creation/initial-message.txt",
-		task.ObjectiveMilestoneCreation: "../../resources/assistant/objectives/milestone_creation/initial-message.txt",
-		task.ObjectiveScheduleCreation:  "../../resources/assistant/objectives/schedule_creation/initial-message.txt",
-		task.ObjectiveChat:              "../../resources/assistant/objectives/chat/initial-message.txt",
+	filePathByObjective := map[Objective]string{
+		ObjectiveGoalCreation:      "../../resources/assistant/objectives/goal_creation/initial-message.txt",
+		ObjectiveMilestoneCreation: "../../resources/assistant/objectives/milestone_creation/initial-message.txt",
+		ObjectiveScheduleCreation:  "../../resources/assistant/objectives/schedule_creation/initial-message.txt",
+		ObjectiveChat:              "../../resources/assistant/objectives/chat/initial-message.txt",
 	}
 
 	for objective, filePath := range filePathByObjective {

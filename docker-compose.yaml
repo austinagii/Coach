@@ -1,22 +1,16 @@
 version: '3.8'
 services:
-  ui:
-    build: 
-      context: ./ui
-      target: dev 
-    ports:
-      - "8000:5173"
-    container_name: aisu-ui
   api:
     build: 
-      context: ./api
+      context: .
       target: dev 
     env_file:
-      ./api/.env
+      .env
     ports:
       - "8080:8080"
     container_name: aisu-api
   database:
     image: mongo:5.0
+    container_name: aisu-db
     ports:
     - "27017:27017"

@@ -3,8 +3,7 @@ package main
 import (
 	"aisu.ai/api/v2/cmd/server/shared/api"
 	"aisu.ai/api/v2/internal/assistant"
-	"aisu.ai/api/v2/internal/assistant/chat"
-	"aisu.ai/api/v2/internal/assistant/task"
+	"aisu.ai/api/v2/internal/chat"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -17,8 +16,8 @@ const (
 )
 
 type NewChatRequest struct {
-	UserID string    `json:"user_id"`
-	Task   task.Task `json:"task"`
+	UserID string         `json:"user_id"`
+	Task   assistant.Task `json:"task"`
 }
 
 func (request *NewChatRequest) UnmarshalJSON(data []byte) error {
@@ -31,22 +30,22 @@ func (request *NewChatRequest) UnmarshalJSON(data []byte) error {
 	}
 
 	var tempTask struct {
-		Objective task.Objective `json:"objective"`
+		Objective assistant.Objective `json:"objective"`
 	}
 	if err := json.Unmarshal(tempRequest.Task, &tempTask); err != nil {
 		return err
 	}
 
 	switch tempTask.Objective {
-	case task.ObjectiveGoalCreation:
-		task := &task.GoalCreationTask{}
+	case assistant.ObjectiveGoalCreation:
+		task := &assistant.GoalCreationTask{}
 		if err := json.Unmarshal(tempRequest.Task, task); err != nil {
 			return err
 		}
 		request.UserID = tempRequest.UserID
 		request.Task = task
-	case task.ObjectiveMilestoneCreation:
-		task := &task.MilestoneCreationTask{}
+	case assistant.ObjectiveMilestoneCreation:
+		task := &assistant.MilestoneCreationTask{}
 		if err := json.Unmarshal(tempRequest.Task, task); err != nil {
 			return err
 		}

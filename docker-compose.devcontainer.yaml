@@ -1,22 +1,12 @@
 version: '3.8'
 services:
-  ui:
-    build: 
-      target: devcontainer
-    container_name: ui-devcontainer
-    volumes:
-      - type: bind
-        source: ./ui
-        target: /ui
-    stdin_open: true
-    tty: true
   api:
     build: 
       target: devcontainer
     container_name: api-devcontainer
     volumes:
       - type: bind
-        source: ./api
+        source: .
         target: /api
     stdin_open: true
     tty: true
