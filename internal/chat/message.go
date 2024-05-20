@@ -7,16 +7,16 @@ import (
 
 type Message struct {
 	Sender     Sender `json:"sender" bson:"sender"`
-	Text       string `json:"text" bson:"text"`
+	Content    string `json:"content" bson:"content"`
 	CreatedAt  int64  `json:"-" bson:"created_at"`
 	ExchangeId string `json:"-" bson:"exchange_id,omitempty"`
 	IsNew      bool   `json:"-" bson:"-"`
 }
 
-func newMessage(sender Sender, text string) *Message {
+func newMessage(sender Sender, content string) *Message {
 	return &Message{
 		Sender:    sender,
-		Text:      text,
+		Content:   content,
 		CreatedAt: time.Now().UnixMilli(),
 		IsNew:     true,
 	}
@@ -41,5 +41,5 @@ func NewAssistantMessage(text string, exchangeId string) *Message {
 }
 
 func (m Message) String() string {
-	return fmt.Sprintf("%v: %v", m.Sender, m.Text)
+	return fmt.Sprintf("%v: %v", m.Sender, m.Content)
 }

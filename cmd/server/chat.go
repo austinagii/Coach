@@ -58,8 +58,8 @@ func (request *NewChatRequest) UnmarshalJSON(data []byte) error {
 }
 
 type NewChatResponse struct {
-	Id   string `json:"id"`
-	Text string `json:"text"`
+	Id      string `json:"id"`
+	Content string `json:"content"`
 }
 
 // HandleNewChatRequest processes an HTTP request to create a new chat returning
@@ -96,8 +96,8 @@ func CreateChat(context *gin.Context) {
 	}
 
 	context.IndentedJSON(http.StatusCreated, &NewChatResponse{
-		Id:   assistant.Id,
-		Text: assistant.Chat.GetLastMessage().Text,
+		Id:      assistant.Id,
+		Content: assistant.Chat.GetLastMessage().Content,
 	})
 	responseHeaders := map[string]string{"Location": "https://api.superu.ai/v1/chat/%s"}
 	if err := context.BindHeader(responseHeaders); err != nil {
