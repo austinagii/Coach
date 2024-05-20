@@ -9,7 +9,8 @@ type Message struct {
 	Sender     Sender `json:"sender" bson:"sender"`
 	Text       string `json:"text" bson:"text"`
 	CreatedAt  int64  `json:"-" bson:"created_at"`
-	ExchangeId string `bson:"exchange_id,omitempty"`
+	ExchangeId string `json:"-" bson:"exchange_id,omitempty"`
+	IsNew      bool   `json:"-" bson:"-"`
 }
 
 func newMessage(sender Sender, text string) *Message {
@@ -17,6 +18,7 @@ func newMessage(sender Sender, text string) *Message {
 		Sender:    sender,
 		Text:      text,
 		CreatedAt: time.Now().UnixMilli(),
+		IsNew:     true,
 	}
 }
 
