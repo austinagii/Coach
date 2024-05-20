@@ -7,9 +7,10 @@ import (
 
 func TestUnmarshalJSON(t *testing.T) {
 	testCases := map[string]Sender{
-		`"User"`:      SenderUser,
-		`"Assistant"`: SenderAssistant,
-		`"System"`:    SenderSystem,
+		`"user"`:      SenderUser,
+		`"assistant"`: SenderAssistant,
+		`"system"`:    SenderSystem,
+		`"USER"`:      SenderUser,
 	}
 
 	var actualSender Sender
@@ -30,6 +31,16 @@ func TestUnmarshalJSONReturnsErrorForUnknownSender(t *testing.T) {
 
 	expectedError := ErrUnknownSender
 	actualError := sender.UnmarshalJSON([]byte(`"unknown"`))
+	if actualError == nil || !errors.Is(actualError, expectedError) {
+		t.Fatalf("Expected error '%v', got '%v'", expectedError, actualError)
+	}
+}
+
+func TestUnmarshalJSONReturnsErrorForEmptyString(t *testing.T) {
+	var sender Sender
+
+	expectedError := ErrUnknownSender
+	actualError := sender.UnmarshalJSON([]byte(`""`))
 	if actualError == nil || !errors.Is(actualError, expectedError) {
 		t.Fatalf("Expected error '%v', got '%v'", expectedError, actualError)
 	}

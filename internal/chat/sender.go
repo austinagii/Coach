@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type Sender string
 
 const (
-	SenderUser      Sender = "User"
-	SenderAssistant Sender = "Assistant"
-	SenderSystem    Sender = "System"
+	SenderUser      Sender = "user"
+	SenderAssistant Sender = "assistant"
+	SenderSystem    Sender = "system"
 )
 
 var ErrUnknownSender = errors.New("Unknown sender")
@@ -30,15 +31,14 @@ func (sender *Sender) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	switch s {
-	case "User":
+	switch strings.ToLower(s) { // Perform a case insenstitive match.
+	case "user":
 		*sender = SenderUser
-	case "Assistant":
+	case "assistant":
 		*sender = SenderAssistant
-	case "System":
+	case "system":
 		*sender = SenderSystem
 	default:
-		*sender = ""
 		return fmt.Errorf("%w '%s'", ErrUnknownSender, s)
 	}
 	return nil
