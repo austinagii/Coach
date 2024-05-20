@@ -2,6 +2,7 @@ package chat
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -12,6 +13,8 @@ const (
 	SenderAssistant Sender = "Assistant"
 	SenderSystem    Sender = "System"
 )
+
+var ErrUnknownSender = errors.New("Unknown sender")
 
 func (sender Sender) String() string {
 	return string(sender)
@@ -36,7 +39,7 @@ func (sender *Sender) UnmarshalJSON(data []byte) error {
 		*sender = SenderSystem
 	default:
 		*sender = ""
-		return fmt.Errorf("No sender for string '%s'", s)
+		return fmt.Errorf("%w '%s'", ErrUnknownSender, s)
 	}
 	return nil
 }
