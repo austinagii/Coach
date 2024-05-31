@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"aisu.ai/api/v2/internal/chat"
 	"go.mongodb.org/mongo-driver/bson"
@@ -57,7 +58,7 @@ func (r *AssistantRepository) Get(id string) (*Assistant, error) {
 	// most recent chat messages up to the message limit.
 	filter := bson.M{"_id": assistantId}
 	options := options.FindOne().SetProjection(bson.M{
-		"messages": bson.M{"$slice": -chat.DefaultChatMessageLimit},
+		"messages": bson.M{"$slice": -chat.DefaultMessageLimit},
 	})
 
 	assistant := &Assistant{}
@@ -82,37 +83,45 @@ func (r *AssistantRepository) Update(assistant *Assistant, numNewMessages int) (
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 
-	var taskUpdate bson.M
+	documentUpdate := bson.M{}
 	switch assistant.Task.Objective() {
 	case ObjectiveGoalCreation:
 		t, ok := assistant.Task.(*GoalCreationTask)
 		if !ok {
 			return nil, errors.New("Failed to convert task with objective 'goal_creation' to expected struct 'GoalCreationTask'")
 		}
-		taskUpdate = bson.M{"task": t}
+		documentUpdate["task"] = t
 	case ObjectiveMilestoneCreation:
 		t, ok := assistant.Task.(*MilestoneCreationTask)
 		if !ok {
 			return nil, errors.New("Failed to convert task with objective 'milestone_creation' to expected struct 'MilestoneCreationTask'")
 		}
-		taskUpdate = bson.M{"task": t}
+		documentUpdate["task"] = t
 	case ObjectiveScheduleCreation:
 		t, ok := assistant.Task.(*ScheduleCreationTask)
 		if !ok {
 			return nil, errors.New("Failed to convert task with objective 'schedule_creation' to expected struct 'ScheduleCreationTask'")
 		}
-		taskUpdate = bson.M{"task": t}
+		documentUpdate["task"] = t
 	}
 
-	// Save the assistant's current task and the specified number of new messages.
-	// In most cases there should only be two new messages per request, one from
-	// the user initiating the exchange and a response from the assistant.
+	// Identity the new messages to be saved.
+	assistant.UpdatedAt = time.Now().UnixMilli()
+	documentUpdate["updated_at"] = assistant.UpdatedAt
+	newMessages := []*chat.Message{}
+	for _, message := range assistant.Chat.Messages {
+		if message.CreatedAt > assistant.UpdatedAt {
+			newMessages = append(newMessages, message)
+		}
+	}
+
+	// Save the assistant's current task and any new messages.
 	update := bson.M{
 		// Save the current the
-		"$set": taskUpdate, // Save the new messages.
+		"$set": documentUpdate,
 		"$push": bson.M{
 			"chat.messages": bson.M{
-				"$each": assistant.Chat.Messages[len(assistant.Chat.Messages)-numNewMessages:],
+				"$each": newMessages,
 			},
 		},
 	}

@@ -36,6 +36,8 @@ type Assistant struct {
 	Chat                    *chat.Chat                       `json:"chat"`
 	client                  *openai.Client                   `json:"-"`
 	modelExchangeRepository *LanguageModelExchangeRepository `json:"-"`
+	CreatedAt               int64                            `json:"created_at"`
+	UpdatedAt               int64                            `json:"updated_at"`
 }
 
 // initiAssistant loads the chat prompt defined for each objective from disk,
@@ -73,6 +75,7 @@ func NewAssistant(
 		Chat:                    chat.NewChat(),
 		client:                  openaiClient,
 		modelExchangeRepository: modelExchangeRepository,
+		CreatedAt:               time.Now().Local().UnixMilli(),
 	}
 
 	chatPromptText, ok := chatPromptByObjective[task.Objective()]

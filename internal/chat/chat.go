@@ -1,16 +1,22 @@
 package chat
 
-const DefaultChatMessageLimit int = 20
+const DefaultMessageLimit int = 20
 
 type Chat struct {
 	Messages     []*Message `json:"messages" bson:"messages"`
 	messageLimit int        `json:"-" bson:"-"`
 }
 
-func NewChat() *Chat {
+func NewChat(limits ...int) *Chat {
+	messageLimit := DefaultMessageLimit
+	// Override the default limit if at least one limit is specified.
+	if len(limits) > 0 {
+		messageLimit = limits[0]
+	}
+
 	return &Chat{
-		Messages:     make([]*Message, 0, DefaultChatMessageLimit),
-		messageLimit: DefaultChatMessageLimit,
+		Messages:     make([]*Message, 0, messageLimit),
+		messageLimit: messageLimit,
 	}
 }
 
@@ -34,5 +40,6 @@ func (c *Chat) GetLastMessage() *Message {
 // TODO: Add a way to identify and return new messages
 // could be as simple as adding a 'is_new' flag to each message
 func (c *Chat) GetNewMessages() []*Message {
-	return make([]*Message, 1)
+	// Return the messages from the last exchange.
+	return c.Messages[len(c.Messages)-2:]
 }
