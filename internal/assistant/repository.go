@@ -28,6 +28,7 @@ func (r *AssistantRepository) Save(assistant *Assistant) (*Assistant, error) {
 	if r.collection == nil {
 		slog.Warn("Collection not initialized correctly")
 	}
+	assistant.UpdatedAt = time.Now().UnixMilli()
 	result, err := r.collection.InsertOne(context.TODO(), assistant)
 	if err != nil {
 		errMsg := "An error occurred while inserting the assistant into the database"
@@ -106,14 +107,14 @@ func (r *AssistantRepository) Update(assistant *Assistant, numNewMessages int) (
 	}
 
 	// Identity the new messages to be saved.
-	assistant.UpdatedAt = time.Now().UnixMilli()
-	documentUpdate["updated_at"] = assistant.UpdatedAt
 	newMessages := []*chat.Message{}
 	for _, message := range assistant.Chat.Messages {
 		if message.CreatedAt > assistant.UpdatedAt {
 			newMessages = append(newMessages, message)
 		}
 	}
+	assistant.UpdatedAt = time.Now().UnixMilli()
+	documentUpdate["updated_at"] = assistant.UpdatedAt
 
 	// Save the assistant's current task and any new messages.
 	update := bson.M{

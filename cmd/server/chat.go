@@ -97,7 +97,7 @@ func CreateChat(context *gin.Context) {
 
 	context.IndentedJSON(http.StatusCreated, &NewChatResponse{
 		Id:      assistant.Id,
-		Content: assistant.Chat.GetLastMessage().Content,
+		Content: assistant.Chat.Messages[0].Content,
 	})
 	responseHeaders := map[string]string{"Location": "https://api.superu.ai/v1/chat/%s"}
 	if err := context.BindHeader(responseHeaders); err != nil {

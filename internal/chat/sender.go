@@ -7,14 +7,13 @@ import (
 	"strings"
 )
 
-// Sender represents the origin of a message in a chat system.
+// Sender represents the origin of a message.
 type Sender string
 
 // Possible values for Sender.
 const (
 	SenderUser      Sender = "user"
 	SenderAssistant Sender = "assistant"
-	SenderSystem    Sender = "system"
 )
 
 // ErrUnknownSender is returned when an unrecognized sender is unmarshaled.
@@ -42,8 +41,6 @@ func (sender *Sender) UnmarshalJSON(data []byte) error {
 		*sender = SenderUser
 	case "assistant":
 		*sender = SenderAssistant
-	case "system":
-		*sender = SenderSystem
 	default:
 		return fmt.Errorf("%w '%s'", ErrUnknownSender, s)
 	}

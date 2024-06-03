@@ -31,13 +31,13 @@ var chatPromptByObjective = map[Objective]string{}
 // that model to produce a response to a given message.
 type Assistant struct {
 	Id                      string                           `json:"id" bson:"_id,omitempty"`
-	Task                    Task                             `json:"task"`
-	User                    *user.User                       `json:"-"`
-	Chat                    *chat.Chat                       `json:"chat"`
-	client                  *openai.Client                   `json:"-"`
-	modelExchangeRepository *LanguageModelExchangeRepository `json:"-"`
-	CreatedAt               int64                            `json:"created_at"`
-	UpdatedAt               int64                            `json:"updated_at"`
+	Task                    Task                             `json:"task" bson:"task"`
+	User                    *user.User                       `json:"-" bson:"user"`
+	Chat                    *chat.Chat                       `json:"chat" bson:"chat"`
+	client                  *openai.Client                   `json:"-" bson:"-"`
+	modelExchangeRepository *LanguageModelExchangeRepository `json:"-" bson:"-"`
+	CreatedAt               int64                            `json:"-" bson:"created_at"`
+	UpdatedAt               int64                            `json:"-" bson:"updated_at"`
 }
 
 // initiAssistant loads the chat prompt defined for each objective from disk,
@@ -257,10 +257,12 @@ func (assistant *Assistant) promptModel() (string, *ModelResponse, error) {
 
 func (assistant *Assistant) UnmarshalBSON(data []byte) error {
 	var tempAssistant struct {
-		Id   string     `bson:"_id"`
-		Task bson.Raw   `bson:"task"`
-		User *user.User `bson:"user"`
-		Chat *chat.Chat `bson:"chat"`
+		Id        string     `bson:"_id"`
+		Task      bson.Raw   `bson:"task"`
+		User      *user.User `bson:"user"`
+		Chat      *chat.Chat `bson:"chat"`
+		CreatedAt int64      `bson:"created_at"`
+		UpdatedAt int64      `bson:"updated_at"`
 	}
 	if err := bson.Unmarshal(data, &tempAssistant); err != nil {
 		return err
@@ -290,6 +292,8 @@ func (assistant *Assistant) UnmarshalBSON(data []byte) error {
 	assistant.Task = t
 	assistant.User = tempAssistant.User
 	assistant.Chat = tempAssistant.Chat
+	assistant.CreatedAt = tempAssistant.CreatedAt
+	assistant.UpdatedAt = tempAssistant.UpdatedAt
 	return nil
 }
 

@@ -9,7 +9,6 @@ func TestUnmarshalJSON(t *testing.T) {
 	testCases := map[string]Sender{
 		`"user"`:      SenderUser,
 		`"assistant"`: SenderAssistant,
-		`"system"`:    SenderSystem,
 		`"USER"`:      SenderUser,
 	}
 

@@ -5,36 +5,35 @@ import (
 	"time"
 )
 
+// Message represents a one-way communication between a user and an assistant.
 type Message struct {
-	Sender     Sender `json:"sender" bson:"sender"`
-	Content    string `json:"content" bson:"content"`
-	CreatedAt  int64  `json:"-" bson:"created_at"`
-	ExchangeId string `json:"-" bson:"exchange_id,omitempty"`
+	Sender    Sender `json:"sender" bson:"sender"`
+	Content   string `json:"content" bson:"content"`
+	CreatedAt int64  `json:"-" bson:"created_at"`
 }
 
-func newMessage(sender Sender, content string) *Message {
+// NewUserMessage creates a new message with optional content.
+func NewMessage(sender Sender, content ...string) *Message {
+	var messageContent string
+	if len(content) > 0 {
+		messageContent = content[0]
+	}
+
 	return &Message{
 		Sender:    sender,
-		Content:   content,
+		Content:   messageContent,
 		CreatedAt: time.Now().UnixMilli(),
 	}
 }
 
-func NewEmptyUserMessage() *Message {
-	return newMessage(SenderUser, "")
+// NewUserMessage creates a new message from a user with optional content.
+func NewUserMessage(content ...string) *Message {
+	return NewMessage(SenderUser, content...)
 }
 
-func NewUserMessage(text string) *Message {
-	return newMessage(SenderUser, text)
-}
-
-func NewEmptyAssistantMessage() *Message {
-	return newMessage(SenderAssistant, "")
-}
-
-func NewAssistantMessage(text string, exchangeId string) *Message {
-	message := newMessage(SenderAssistant, text)
-	message.ExchangeId = exchangeId
+// NewUserMessage creates a new message from an assistant with optional content.
+func NewAssistantMessage(content ...string) *Message {
+	message := NewMessage(SenderAssistant, content...)
 	return message
 }
 

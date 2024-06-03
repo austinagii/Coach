@@ -1,12 +1,16 @@
 package chat
 
+// Represents the default number of messages that a chat can contain.
 const DefaultMessageLimit int = 20
 
+// Chat represents a collection of messages exchanged between a user and an assistant.
 type Chat struct {
 	Messages     []*Message `json:"messages" bson:"messages"`
 	messageLimit int        `json:"-" bson:"-"`
 }
 
+// NewChat creates a new chat with an optional message limit. If no limit is specified,
+// then the message limit will be set to the default message limit.
 func NewChat(limits ...int) *Chat {
 	messageLimit := DefaultMessageLimit
 	// Override the default limit if at least one limit is specified.
