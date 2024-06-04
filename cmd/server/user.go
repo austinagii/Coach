@@ -8,8 +8,7 @@ import (
 )
 
 type NewUserRequest struct {
-	Name   string       `json:"name"`
-	Gender *user.Gender `json:"gender"`
+	Name string `json:"name"`
 }
 
 func CreateUser(context *gin.Context) {
@@ -20,7 +19,7 @@ func CreateUser(context *gin.Context) {
 		return
 	}
 
-	newUser := user.NewUser(request.Name, *request.Gender)
+	newUser := user.NewUser(request.Name)
 	createdUser, err := userRepository.Save(newUser)
 	if err != nil {
 		errMsg := "An error occurred while saving the user"

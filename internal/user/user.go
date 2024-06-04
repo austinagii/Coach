@@ -1,29 +1,54 @@
 package user
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
-)
-
-type Gender string
-
-const (
-	GenderMale   Gender = "male"
-	GenderFemale Gender = "female"
+	"time"
 )
 
 type User struct {
 	Id       string         `json:"id,omitempty" bson:"_id,omitempty"`
 	Name     string         `json:"name" bson:"name"`
-	Gender   Gender         `json:"gender" bson:"gender"`
 	Summary  string         `json:"summary,omitempty" bson:"summary,omitempty"`
 	Goals    []*Goal        `json:"goals,omitempty" bson:"goals,omitempty"`
 	Schedule *DailySchedule `json:"schedule,omitempty" bson:"schedule,omitempty"`
 }
 
-func NewUser(name string, gender Gender) *User {
-	return &User{Name: name, Gender: gender}
+type Goal struct {
+	Id             int          `json:"id,omitempty" bson:"_id,omitempty"`
+	Title          string       `json:"title" bson:"title"`
+	Description    string       `json:"description" bson:"description"`
+	Milestones     []*Milestone `json:"milestones,omitempty" bson:"milestones,omitempty"`
+	IsComplete     bool         `json:"is_complete" bson:"is_complete"`
+	IsDeleted      bool         `json:"is_deleted" bson:"is_deleted"`
+	CompletionDate time.Time    `json:"completion_date,omitempty" bson:"completion_date,omitempty"`
+}
+
+type Milestone struct {
+	Title          string    `json:"title" bson:"title"`
+	Description    string    `json:"description" bson:"description"`
+	TargetDate     time.Time `json:"target_date,omitempty" bson:"target_date,omitempty"`
+	IsComplete     bool      `json:"is_complete" bson:"is_complete"`
+	CompletionDate time.Time `json:"completion_date,omitempty" bson:"completion_date,omitempty"`
+	IsDeleted      bool      `json:"is_deleted" bson:"is_deleted"`
+}
+
+// DailySchedule represents a collection of timeboxed activities that a user
+// has determined to accomplish.
+type DailySchedule struct {
+	Activities []ScheduledActivity `json:"activities" bson:"activities"`
+}
+
+// ScheduledActivity represents a singular timeboxed activity that a user wants
+// to complete.
+type ScheduledActivity struct {
+	Start       string `json:"start" bson:"start"`
+	End         string `json:"end" bson:"end"`
+	Title       string `json:"title" bson:"title"`
+	Description string `json:"description" bson:"description"`
+}
+
+func NewUser(name string) *User {
+	return &User{Name: name}
 }
 
 func (user *User) AddNewGoal(goal *Goal) {
@@ -47,22 +72,4 @@ func (user *User) GetGoalById(id int) (*Goal, error) {
 		return nil, fmt.Errorf("No goal with id '%d' could be found", id)
 	}
 	return goal, nil
-}
-
-func (g *Gender) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-
-	s = strings.ToLower(s)
-	switch s {
-	case "male":
-		*g = GenderMale
-	case "female":
-		*g = GenderFemale
-	default:
-		return fmt.Errorf("No gender found for string '%s'", s)
-	}
-	return nil
 }
