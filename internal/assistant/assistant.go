@@ -3,32 +3,31 @@ package assistant
 import (
 	"aisu.ai/api/v2/internal/chat"
 	"aisu.ai/api/v2/internal/user"
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	openai "github.com/sashabaranov/go-openai"
 	"go.mongodb.org/mongo-driver/bson"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 )
 
-// The shared description of all assistants excluding task info.
-var assistantDescription string
+var (
+	// The generic description of an assistant excluding any details about it's current task.
+	assistantDescription string
 
-// Maps objectives to tailored initial messages for starting conversations.
-var chatPromptByObjective = map[Objective]string{}
+	// Maps objectives to tailored user prompts that an assistant will use to start a chat.
+	// e.g. If a user requests a new assistant with the objective of goal creation, the message
+	// 'What's goal do you want to set?' will be used to prompt the user to start defining their goal.
+	chatPromptByObjective = map[Objective]string{}
 
-// Assistant is an interactive agent responsible for completing a specified
-// task by sending and receiving text based messages.
-//
-// An assistant manages the current task and chat states, updating both as
-// new messages are received and processed. The assistant provides responses
-// by wrapping an OpenAI model via the `openai.Client` struct and prompts
-// that model to produce a response to a given message.
+	// ErrNotIntialized indicates that the creation of a new Assistant was attempted before loading the
+	// static data required.
+	ErrNotIntialized = errors.New("The static data required to create a new assistant has not been loaded")
+)
+
+// Assistant is an interactive agent responsible for completing a given task by exchanging text
+// based messages with a user.
 type Assistant struct {
 	Id                      string                           `json:"id" bson:"_id,omitempty"`
 	Task                    Task                             `json:"task" bson:"task"`
@@ -40,8 +39,7 @@ type Assistant struct {
 	UpdatedAt               int64                            `json:"-" bson:"updated_at"`
 }
 
-// initiAssistant loads the chat prompt defined for each objective from disk,
-// returning an error if the file could not be
+// InitAssistants loads the static data required to create an assistant, returning an error if one occurs.
 func InitAssistants() error {
 	if err := loadAssistantDescription(); err != nil {
 		return err
@@ -52,248 +50,6 @@ func InitAssistants() error {
 	if err := loadObjectiveChatPrompts(); err != nil {
 		return err
 	}
-	return nil
-}
-
-// NewAssistant creates an assistant to complete a given task.
-//
-// When a new assistant is created, it is initalized with a description
-// and initial chat message based on the specified task. The description
-// is a combination of the assistant's generic description plus the
-// description of the task and the initial message is a pre-defined starter
-// message relevant to the task's objective.
-func NewAssistant(
-	user *user.User,
-	task Task,
-	openaiClient *openai.Client,
-	modelExchangeRepository *LanguageModelExchangeRepository,
-) (*Assistant, error) {
-	// TODO: Add checks to ensure the client is available for use.
-	assistant := &Assistant{
-		User:                    user,
-		Task:                    task,
-		Chat:                    chat.NewChat(),
-		client:                  openaiClient,
-		modelExchangeRepository: modelExchangeRepository,
-		CreatedAt:               time.Now().Local().UnixMilli(),
-	}
-
-	chatPromptText, ok := chatPromptByObjective[task.Objective()]
-	for key := range chatPromptByObjective {
-		slog.Error("Found key", "key", key)
-	}
-	if !ok {
-		errorMsg := "No initial message found for objective"
-		slog.Error(errorMsg, "objective", task.Objective().String())
-		return nil, fmt.Errorf("%s '%s'", errorMsg, task.Objective().String())
-	}
-	chatPrompt := chat.NewAssistantMessage(chatPromptText, "")
-	assistant.Chat.Append(chatPrompt)
-	return assistant, nil
-}
-
-func (assistant *Assistant) Init(
-	openaiClient *openai.Client,
-	modelExchangeRepository *LanguageModelExchangeRepository,
-) {
-	assistant.client = openaiClient
-	assistant.modelExchangeRepository = modelExchangeRepository
-}
-
-// Respond provides a reply message to the given message or an error if one occurrs.
-//
-// Respond takses into account information about the user to provide a context
-// sensitive response to the given message.
-func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error) {
-	assistant.Chat.Append(message)
-	exchangeId, modelPrompt, err := assistant.promptModel()
-	if err != nil {
-		errMsg := "An error occurred while requesting a response from the model"
-		slog.Error(errMsg, "error", err)
-		return nil, fmt.Errorf("%s: %w", errMsg, err)
-	}
-
-	switch modelPrompt.Task.Objective() {
-	case ObjectiveGoalCreation:
-		t, ok := modelPrompt.Task.(*GoalCreationTask)
-		if !ok {
-			return nil, errors.New("Failed to convert task with objective 'goal_creation' to expected struct 'GoalCreationTask'")
-		}
-		assistant.Task = t
-		if modelPrompt.IsComplete {
-			assistant.User.AddNewGoal(t.Goal)
-			assistant.Task = NewMilestoneCreationTask(t.Goal.Id)
-		}
-	case ObjectiveMilestoneCreation:
-		t, ok := modelPrompt.Task.(*MilestoneCreationTask)
-		if !ok {
-			return nil, errors.New("Failed to convert task with objective 'milestone_creation' to expected struct 'MilestoneCreationTask'")
-		}
-		assistant.Task = t
-		if modelPrompt.IsComplete {
-			goal, err := assistant.User.GetGoalById(t.GoalId)
-			if err != nil {
-				return nil, err
-			}
-			goal.Milestones = t.Milestones
-			assistant.Task = NewScheduleCreationTask()
-		}
-	case ObjectiveScheduleCreation:
-		t, ok := modelPrompt.Task.(*ScheduleCreationTask)
-		if !ok {
-			return nil, errors.New("Failed to convert task with objective 'schedule_creation' to expected struct 'ScheduleCreationTask'")
-		}
-		assistant.Task = t
-		if modelPrompt.IsComplete {
-			assistant.User.Schedule = t.Schedule
-		}
-	}
-
-	assistant.User.Summary = modelPrompt.UserSummary
-	assistantMessage := chat.NewAssistantMessage(modelPrompt.ResponseMessage, exchangeId)
-	assistant.Chat.Append(assistantMessage)
-	return assistantMessage, nil
-}
-
-func (assistant *Assistant) promptModel() (string, *ModelResponse, error) {
-	// Generate a unique ID to track this conversational exchange.
-	exchangeId := uuid.NewString()
-
-	systemMessageText := fmt.Sprintf("%s\n\n%s", assistantDescription, assistant.Task.Description())
-	systemMessage := openai.ChatCompletionMessage{
-		Role:    "system",
-		Content: systemMessageText,
-	}
-
-	// TODO: Marshall to yaml for better model understadability and size/cost reduction.
-	modelPrompt := NewModelPrompt(assistant.User, assistant.Task, assistant.Chat)
-	userMessageBytes, err := json.Marshal(modelPrompt)
-	if err != nil {
-		errMsg := "An error occurred while marshalling the model prompt to JSON"
-		slog.Error(errMsg, "error", err)
-		return "", nil, fmt.Errorf("%s: %w", errMsg, err)
-	}
-
-	userMessageText := string(userMessageBytes)
-	userMessage := openai.ChatCompletionMessage{
-		Role:    "user",
-		Content: string(userMessageText),
-	}
-
-	initiationTime := time.Now().UnixMilli()
-	resp, err := assistant.client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model:    openai.GPT4TurboPreview,
-			Messages: []openai.ChatCompletionMessage{systemMessage, userMessage},
-			ResponseFormat: &openai.ChatCompletionResponseFormat{
-				Type: openai.ChatCompletionResponseFormatTypeJSONObject,
-			},
-		},
-	)
-	completionTime := time.Now().UnixMilli()
-	if err != nil {
-		errMsg := "An error occurred while requesting a chat completion from the OpenAI API"
-		slog.Error(errMsg, "error", err)
-		return "", nil, fmt.Errorf("%s: %w", errMsg, err)
-	}
-	assistantMessageText := resp.Choices[0].Message.Content
-
-	// Fire and forget the exchange audit. Success here is't critical
-	go assistant.modelExchangeRepository.Save(
-		exchangeId,
-		systemMessageText,
-		userMessageText,
-		assistantMessageText,
-		initiationTime,
-		completionTime,
-	)
-
-	assistantMessageText = strings.TrimPrefix(assistantMessageText, "```json\n")
-	assistantMessageText = strings.TrimSuffix(assistantMessageText, "\n```")
-	modelResponse := NewEmptyModelResponse()
-	var tempModelResponse struct {
-		Task        json.RawMessage `json:"task"`
-		IsComplete  bool            `json:"is_complete"`
-		UserSummary string          `json:"user_summary"`
-		Response    string          `json:"response"`
-	}
-	err = json.Unmarshal([]byte(assistantMessageText), &tempModelResponse)
-	if err != nil {
-		return "", nil, err
-	}
-	modelResponse.IsComplete = tempModelResponse.IsComplete
-	modelResponse.UserSummary = tempModelResponse.UserSummary
-	modelResponse.ResponseMessage = tempModelResponse.Response
-	switch modelPrompt.Task.Objective() {
-	case ObjectiveGoalCreation:
-		task := &GoalCreationTask{}
-		if err := json.Unmarshal(tempModelResponse.Task, task); err != nil {
-			return "", nil, err
-		}
-		modelResponse.Task = task
-	case ObjectiveMilestoneCreation:
-		task := &MilestoneCreationTask{}
-		if err := json.Unmarshal(tempModelResponse.Task, task); err != nil {
-			return "", nil, err
-		}
-		modelResponse.Task = task
-	case ObjectiveScheduleCreation:
-		task := &ScheduleCreationTask{}
-		if err := json.Unmarshal(tempModelResponse.Task, task); err != nil {
-			return "", nil, err
-		}
-		modelResponse.Task = task
-	default:
-		return "", nil, fmt.Errorf("Unsupported objective")
-	}
-	if err != nil {
-		errMsg := "An error occurred while unmarshalling the OpenAI API model response"
-		slog.Error(errMsg, "error", err)
-		return "", nil, fmt.Errorf("%s: %w", errMsg, err)
-	}
-	return exchangeId, modelResponse, nil
-}
-
-func (assistant *Assistant) UnmarshalBSON(data []byte) error {
-	var tempAssistant struct {
-		Id        string     `bson:"_id"`
-		Task      bson.Raw   `bson:"task"`
-		User      *user.User `bson:"user"`
-		Chat      *chat.Chat `bson:"chat"`
-		CreatedAt int64      `bson:"created_at"`
-		UpdatedAt int64      `bson:"updated_at"`
-	}
-	if err := bson.Unmarshal(data, &tempAssistant); err != nil {
-		return err
-	}
-
-	tempTask := &BaseTask{}
-	if err := bson.Unmarshal(tempAssistant.Task, tempTask); err != nil {
-		return err
-	}
-	slog.Info("Data: ", "temp task", tempAssistant.Task)
-	var t Task
-	switch tempTask.Objective() {
-	case ObjectiveGoalCreation:
-		t = &GoalCreationTask{}
-	case ObjectiveMilestoneCreation:
-		t = &MilestoneCreationTask{}
-	case ObjectiveScheduleCreation:
-		t = &ScheduleCreationTask{}
-	default:
-		return fmt.Errorf("No task found for objective %s", tempTask.Objective().String())
-	}
-	if err := bson.Unmarshal(tempAssistant.Task, t); err != nil {
-		return err
-	}
-
-	assistant.Id = tempAssistant.Id
-	assistant.Task = t
-	assistant.User = tempAssistant.User
-	assistant.Chat = tempAssistant.Chat
-	assistant.CreatedAt = tempAssistant.CreatedAt
-	assistant.UpdatedAt = tempAssistant.UpdatedAt
 	return nil
 }
 
@@ -325,5 +81,135 @@ func loadObjectiveChatPrompts() error {
 		}
 		chatPromptByObjective[objective] = string(fileContents)
 	}
+	return nil
+}
+
+// NewAssistant creates an assistant to complete a given task.
+//
+// An ErrNotIntialized error will be returned if the `InitAssistants` function was not executed
+// successfully before attempting to call this function.
+func NewAssistant(
+	user *user.User,
+	task Task,
+	openaiClient *openai.Client,
+	// TODO(Medium): Remove model exchange repo as assistant dependency.
+	modelExchangeRepository *LanguageModelExchangeRepository,
+) (*Assistant, error) {
+	assistant := &Assistant{
+		User:                    user,
+		Task:                    task,
+		Chat:                    chat.NewChat(),
+		client:                  openaiClient,
+		modelExchangeRepository: modelExchangeRepository,
+		CreatedAt:               time.Now().Local().UnixMilli(),
+	}
+
+	// Start the assistant's chat using the prompt defined for the specified objective.
+	chatPromptText, ok := chatPromptByObjective[task.Objective()]
+	if !ok {
+		errorMsg := "No chat prompt found for objective"
+		slog.Error(errorMsg, "objective", task.Objective().String())
+		return nil, fmt.Errorf("%s '%s'", errorMsg, task.Objective().String())
+	}
+	chatPrompt := chat.NewAssistantMessage(chatPromptText)
+	assistant.Chat.Append(chatPrompt)
+	return assistant, nil
+}
+
+// Init configures an existing assistant to use the provided openai client and model exchange repository.
+func (assistant *Assistant) Init(
+	openaiClient *openai.Client,
+	modelExchangeRepository *LanguageModelExchangeRepository,
+) {
+	assistant.client = openaiClient
+	assistant.modelExchangeRepository = modelExchangeRepository
+}
+
+// Respond generates a response to the provided message and updates the assistant's state accordingly.
+// It returns the generated response message or an error if one occurs.
+func (assistant *Assistant) Respond(message *chat.Message) (*chat.Message, error) {
+	// Add the incoming message to the chat history.
+	assistant.Chat.Append(message)
+
+	// Generate a response from the model based on the current chat context.
+	modelResponse, err := promptModel(assistant)
+	if err != nil {
+		errMsg := "An error occurred while requesting a response from the model"
+		slog.Error(errMsg, "error", err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
+	}
+
+	// Add the model's response message to the chat history.
+	assistantMessage := chat.NewAssistantMessage(modelResponse.ResponseMessage)
+	assistant.Chat.Append(assistantMessage)
+
+	// Update the assistant's context based on the type of task completed.
+	assistant.Task = modelResponse.Task
+	assistant.User.Summary = modelResponse.UserSummary
+	// TODO: (Low Priority) Move each case into it's own handler function that updates the assistant context.
+	if modelResponse.IsComplete {
+		switch modelResponse.Task.Objective() {
+		case ObjectiveGoalCreation:
+			// Avoid unnecessary error handling on type conversion since type setting is explicit in the
+			// `promptModel` function.
+			task := modelResponse.Task.(*GoalCreationTask)
+			assistant.User.AddNewGoal(task.Goal)
+			assistant.Task = NewMilestoneCreationTask(task.Goal.Id)
+		case ObjectiveMilestoneCreation:
+			task := modelResponse.Task.(*MilestoneCreationTask)
+			goal, err := assistant.User.GetGoalById(task.GoalId)
+			if err != nil {
+				return nil, err
+			}
+			goal.Milestones = task.Milestones
+			assistant.Task = NewScheduleCreationTask()
+		case ObjectiveScheduleCreation:
+			task := modelResponse.Task.(*ScheduleCreationTask)
+			assistant.User.Schedule = task.Schedule
+		}
+	}
+
+	return assistantMessage, nil
+}
+
+// TODO: (Medium Priority) Add comments for understandability.
+func (assistant *Assistant) UnmarshalBSON(data []byte) error {
+	var tempAssistant struct {
+		Id        string     `bson:"_id"`
+		Task      bson.Raw   `bson:"task"`
+		User      *user.User `bson:"user"`
+		Chat      *chat.Chat `bson:"chat"`
+		CreatedAt int64      `bson:"created_at"`
+		UpdatedAt int64      `bson:"updated_at"`
+	}
+	if err := bson.Unmarshal(data, &tempAssistant); err != nil {
+		return err
+	}
+
+	tempTask := &BaseTask{}
+	if err := bson.Unmarshal(tempAssistant.Task, tempTask); err != nil {
+		return err
+	}
+	var t Task
+	switch tempTask.Objective() {
+	case ObjectiveGoalCreation:
+		t = &GoalCreationTask{}
+	case ObjectiveMilestoneCreation:
+		t = &MilestoneCreationTask{}
+	case ObjectiveScheduleCreation:
+		t = &ScheduleCreationTask{}
+	default:
+		return fmt.Errorf("No task found for objective %s", tempTask.Objective().String())
+	}
+	if err := bson.Unmarshal(tempAssistant.Task, t); err != nil {
+		return err
+	}
+
+	assistant.Id = tempAssistant.Id
+	assistant.Task = t
+	assistant.User = tempAssistant.User
+	assistant.Chat = tempAssistant.Chat
+	assistant.CreatedAt = tempAssistant.CreatedAt
+	assistant.UpdatedAt = tempAssistant.UpdatedAt
 	return nil
 }

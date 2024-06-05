@@ -86,20 +86,6 @@ func (o *Objective) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// func (o *Objective) UnmarshalBSON(data []byte) error {
-// 	var s string
-// 	if err := bson.Unmarshal(data, &s); err != nil {
-// 		return err
-// 	}
-//
-// 	objective, err := objectiveFromString(s)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	*o = objective
-// 	return nil
-// }
-
 func allAvailableObjectiveStrings() string {
 	objectives := make([]string, 0, len(availableObjectives))
 	for _, obj := range availableObjectives {
