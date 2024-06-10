@@ -26,19 +26,6 @@ var (
 	ErrNotIntialized = errors.New("The static data required to create a new assistant has not been loaded")
 )
 
-// Assistant is an interactive agent responsible for completing a given task by exchanging text
-// based messages with a user.
-type Assistant struct {
-	Id                      string                           `json:"id" bson:"_id,omitempty"`
-	Task                    Task                             `json:"task" bson:"task"`
-	User                    *user.User                       `json:"-" bson:"user"`
-	Chat                    *chat.Chat                       `json:"chat" bson:"chat"`
-	client                  *openai.Client                   `json:"-" bson:"-"`
-	modelExchangeRepository *LanguageModelExchangeRepository `json:"-" bson:"-"`
-	CreatedAt               int64                            `json:"-" bson:"created_at"`
-	UpdatedAt               int64                            `json:"-" bson:"updated_at"`
-}
-
 // InitAssistants loads the static data required to create an assistant, returning an error if one occurs.
 func InitAssistants() error {
 	if err := loadAssistantDescription(); err != nil {
@@ -71,7 +58,6 @@ func loadObjectiveChatPrompts() error {
 	}
 
 	for objective, filePath := range filePathByObjective {
-		slog.Error("Loading prompt for objective", "objective", objective)
 		fileContents, err := os.ReadFile(filePath)
 		fileContents = fileContents[:len(fileContents)-1]
 		if err != nil {
@@ -84,6 +70,19 @@ func loadObjectiveChatPrompts() error {
 	return nil
 }
 
+// Assistant is an interactive agent responsible for completing a given task by exchanging text
+// based messages with a user.
+type Assistant struct {
+	Id                      string                  `json:"id" bson:"_id,omitempty"`
+	Task                    Task                    `json:"task" bson:"task"`
+	User                    *user.User              `json:"-" bson:"user"`
+	Chat                    *chat.Chat              `json:"chat" bson:"chat"`
+	client                  *openai.Client          `json:"-" bson:"-"`
+	modelExchangeRepository ModelExchangeRepository `json:"-" bson:"-"`
+	CreatedAt               int64                   `json:"-" bson:"created_at"`
+	UpdatedAt               int64                   `json:"-" bson:"updated_at"`
+}
+
 // NewAssistant creates an assistant to complete a given task.
 //
 // An ErrNotIntialized error will be returned if the `InitAssistants` function was not executed
@@ -93,7 +92,7 @@ func NewAssistant(
 	task Task,
 	openaiClient *openai.Client,
 	// TODO(Medium): Remove model exchange repo as assistant dependency.
-	modelExchangeRepository *LanguageModelExchangeRepository,
+	modelExchangeRepository ModelExchangeRepository,
 ) (*Assistant, error) {
 	assistant := &Assistant{
 		User:                    user,

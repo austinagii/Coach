@@ -14,17 +14,6 @@ import (
 	"time"
 )
 
-// languageModelExchange represents a single conversational exchange with a language model.
-type languageModelExchange struct {
-	Id            string `json:"_id,omitempty"`
-	MessageId     string `json:"message_id"`
-	SystemMessage string `json:"system_message"`
-	Prompt        string `json:"prompt"`
-	Response      string `json:"response"`
-	PromptedAt    int64  `json:"prompted_at"`
-	RespondedAt   int64  `json:"responded_at"`
-}
-
 type ModelPrompt struct {
 	User *user.User `json:"user"`
 	Task Task       `json:"task"`
@@ -36,6 +25,21 @@ type ModelResponse struct {
 	IsComplete      bool   `json:"is_complete"`
 	UserSummary     string `json:"user_summary"`
 	ResponseMessage string `json:"response"`
+}
+
+// languageModelExchange represents a single conversational exchange with a language model.
+type languageModelExchange struct {
+	Id            string `json:"_id,omitempty"`
+	MessageId     string `json:"message_id"`
+	SystemMessage string `json:"system_message"`
+	Prompt        string `json:"prompt"`
+	Response      string `json:"response"`
+	PromptedAt    int64  `json:"prompted_at"`
+	RespondedAt   int64  `json:"responded_at"`
+}
+
+type ModelExchangeRepository interface {
+	Save(string, string, string, string, int64, int64) error
 }
 
 // LanguageModelExchangeRepository is responsible for auditing exchanges with a language model
