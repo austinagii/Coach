@@ -1,36 +1,80 @@
-# AISU
+# Coach
 
-AI Super U or AISU for short is a web & mobile assistant to help you set goals and achieve them.
+**Coach** is an intelligent assistant designed to help users define, track, and achieve their goals through conversational AI, active encouragement, smart tracking, and gamification.
 
 ## Overview
 
-AISU uses a chat based language model to help you define the goals that are the most important and impactful to you and then through a combination of active encouragement, smart tracking and gamification helps you to move toward those goals with confidence.
+Coach leverages a large language model to engage users in meaningful conversations, helping them identify the most important and impactful goals. Through a blend of motivation, strategic tracking, and game-like elements, Coach empowers users to pursue their objectives with confidence and clarity.
 
-AISU UI is written in Svelte and it's API in Go.
+## Feature Goals
+
+- **Conversational Goal Setting:** Interactive discussions to help users pinpoint and refine their goals.
+- **Smart Tracking:** Monitor progress with intelligent, adaptive tracking mechanisms.
+- **Active Encouragement:** Receive personalized motivation and reminders to stay on track.
+- **Gamification:** Make goal achievement fun and engaging with game-like rewards and challenges.
 
 ## Getting Started
 
-At a minimum you'll need to install the following tools:
-- Docker
-- Bash
+Follow these instructions to set up your development environment and start contributing to Coach.
 
-Once those are installed, you'll need to complete the configuration of the API. To do so, perform the following steps:
-1. Set up your OpenAI account and get your API Key
-2. Create `.env` file from the `.env.template`
-3. Set the `OPENAI_API_KEY` property in the `.env` file to the value of your API key
+### Prerequisites
 
+Ensure you have the following installed:
 
-### Running A Development Environment
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
 
-To get started with the development of AISU you'll need a local environment. To this end, development containers have been defined to ensure consistency across the development environment's of anyone contributing to AISU.
+### Running a Development Environment
 
-_Note that executing this command mounts the current code into the devcontainer, thus any changes to the source files made from inside or outside the source files affect the current state of the code._
+Coach uses development containers to maintain consistency across all contributors' environments. Follow these steps to set up your local environment:
 
-```bash
-docker compose -f docker-compose.yaml -f docker-compose.devcontainer.yaml up -d --build  
-```
+1. **Clone the Repository:**
 
-This will spin up a separate dev container for the API and the UI. You can then attach to a container by simply executing 
-```bash
-docker container attach <container_name>
-```
+   ```bash
+   git clone https://github.com/yourusername/coach.git
+   cd coach
+   ```
+
+2. **Start the Development Containers**
+   Execute the following command to build and run the development containers:
+
+   ```bash
+   docker compose -f docker-compose.yaml -f docker-compose.devcontainer.yaml up -d --build
+   ```
+   This command will spin up separate containers for the API and UI.
+
+3. **Attach to a Container**
+   To interact with a specific container, use the command:
+   ```bash
+   docker container attach <container_name>
+   ```
+   Replace <container_name> with the name of the container you want to attach to.
+
+## Contributing
+
+We welcome contributions from the community! Here's how you can get involved:
+
+1. **Fork the Repository**:
+   - Click the "Fork" button on the top right of the repository page.
+
+2. **Create a Branch**:
+   - Create a feature branch for your changes: `git checkout -b feature/YourFeature`
+
+3. **Commit Your Changes**:
+   - Commit your changes: `git commit -m 'Add some feature'`
+
+4. **Push to the Branch**:
+   - Push to your branch: `git push origin feature/YourFeature`
+
+5. **Open a Pull Request**:
+   - Open a pull request to the main branch of the original repository.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contact
+
+For any questions, feel free to reach out via GitHub Issues or contact us directly at [contact@kadeemaustin.ai].
+
+Thank you for contributing to Coach! Together, we can help users achieve their goals more effectively.
