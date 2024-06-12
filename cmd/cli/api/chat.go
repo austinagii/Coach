@@ -19,8 +19,8 @@ type newChatRequest struct {
 }
 
 type chat struct {
-	Id   string `json:"id"`
-	Text string `json:"text"`
+	Id      string `json:"id"`
+	Content string `json:"content"`
 }
 
 func CreateChat(userId string) (string, string, error) {
@@ -48,7 +48,7 @@ func CreateChat(userId string) (string, string, error) {
 	if err := json.Unmarshal(respBytes, &chat); err != nil {
 		return "", "", err
 	}
-	return chat.Id, chat.Text, nil
+	return chat.Id, chat.Content, nil
 }
 
 type outgoingChatMessage struct {
@@ -57,7 +57,7 @@ type outgoingChatMessage struct {
 }
 
 type incomingChatMessage struct {
-	Text string `json:"text"`
+	Text string `json:"content"`
 }
 
 func Respond(userId string, chatId string, userMessage string) (string, error) {
