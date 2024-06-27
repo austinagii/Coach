@@ -1,21 +1,21 @@
 FROM golang:1.21.6 as base
 
-WORKDIR /api
+WORKDIR /coach
 
-COPY go.mod /api/go.mod
-COPY go.sum /api/go.sum
+COPY go.mod . 
+COPY go.sum .
 RUN go mod download -json
-
-CMD ["/usr/bin/env", "bash"]
-
-
-FROM base as devcontainer
-
-ENTRYPOINT ["/usr/bin/env", "bash"]
 
 
 FROM base as dev
 
-COPY . /api
+RUN go install github.com/codegangsta/gin
 
-ENTRYPOINT ["go", "run", "/api/cmd/server/main.go"]
+ENTRYPOINT ["bash"]
+
+
+FROM base as test
+
+COPY . /coach
+
+ENTRYPOINT ["go", "run", "."]

@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  orchestrator:
+    build: 
+      context: .
+      dockerfile: dev.dockerfile
+    container_name: coach-orchestrator
+    volumes:
+      - type: bind
+        source: scripts
+        target: /coach
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    stdin_open: true
+    tty: true
+  api:
+    build: 
+      context: .
+      target: dev
+    container_name: coach-api-devcontainer
+    volumes:
+      - type: bind
+        source: .
+        target: /coach
+    ports:
+      - "3000:3000"
+    working_dir: /coach/cmd/server
+    entrypoint: gin --appPort 8080 run .
+    stdin_open: true
+    tty: true
+  database:
+    container_name: coach-db-devcontainer 

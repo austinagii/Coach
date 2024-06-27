@@ -1,5 +1,5 @@
 package api
 
 const (
-	ApiBaseUrl = "http://localhost:8080"
+	ApiBaseUrl = "http://localhost:3000"
 )
