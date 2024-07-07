@@ -3,8 +3,8 @@ services:
   orchestrator:
     build: 
       context: .
-      dockerfile: dev.dockerfile
-    container_name: coach-orchestrator
+      dockerfile: dockerfile
+    container_name: coach
     volumes:
       - type: bind
         source: scripts
@@ -16,12 +16,12 @@ services:
     tty: true
   api:
     build: 
-      context: .
+      context: ./api
       target: dev
-    container_name: coach-api-devcontainer
+    container_name: coach-api
     volumes:
       - type: bind
-        source: .
+        source: ./api
         target: /coach
     ports:
       - "3000:3000"
