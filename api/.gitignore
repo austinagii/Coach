@@ -1,21 +1,13 @@
-# ignore hidden files by default except gitignore and gitkeep
+# Ignore hidden files by default except gitignore and gitkeep
 .*
 !**/.gitkeep
 !**/.gitignore
+
+# Do not ignore any template files
+!**/*.template
 
 # ignore node dependencies but keep husky / commitlint config 
 node_modules
 !.husky
 !.commitlint.config.js
-
-# Do not ignore files necessary for ANa to execute
-!ana-cli/.anarc
-
-# ignore files that may contain secrets or sensitive information
-*.pem
-config/infrastructure/azure.config
-config/security/certs.cfg
-
-# ignore any scratch files
-**/*scratch.*
 
