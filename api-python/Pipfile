@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+openai = "~=1.37"
+pymongo = "~=4.8"
+fastapi = "~=0.111"
+pydantic = "~=2.8"
+structlog = "~=24.4"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"

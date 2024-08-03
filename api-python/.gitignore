@@ -1,0 +1,13 @@
+# Ignore hidden files by default except gitignore and gitkeep
+.*
+!**/.gitkeep
+!**/.gitignore
+
+# Do not ignore any template files
+!**/*.template
+
+# ignore node dependencies but keep husky / commitlint config 
+node_modules
+!.husky
+!.commitlint.config.js
+

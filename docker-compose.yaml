@@ -5,7 +5,7 @@ services:
       context: ./api
       target: test
     env_file:
-      .env
+      ./api/.env
     ports:
       - "8080:8080"
     container_name: coach-api
