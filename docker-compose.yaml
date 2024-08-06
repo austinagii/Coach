@@ -1,14 +1,21 @@
 version: '3.8'
 services:
   api:
-    build: 
+    build:
       context: ./api
       target: test
     env_file:
       ./api/.env
+    container_name: coach-api
+  api-go: # Deprecated, to be removed.
+    build: 
+      context: ./api-go
+      target: test
+    env_file:
+      ./api-go/.env
     ports:
       - "8080:8080"
-    container_name: coach-api
+    container_name: coach-api-go
   database:
     image: mongo:5.0
     container_name: coach-db

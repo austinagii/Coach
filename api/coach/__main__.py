@@ -71,7 +71,7 @@ def main():
     )
 
     try:
-        db_uri = "mongodb://host.docker.internal:27017"
+        db_uri = ""
         client = MongoClient(db_uri)
         database = client["aisu"]
         collection = database["users"]

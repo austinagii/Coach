@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Callable, Optional
 import uuid
-
+import structlog
 from openai import OpenAI
 from pydantic import BaseModel, Field
 

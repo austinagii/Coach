@@ -1,5 +1,6 @@
 version: '3.8'
 services:
+
   orchestrator:
     build: 
       context: .
@@ -14,14 +15,28 @@ services:
         target: /var/run/docker.sock
     stdin_open: true
     tty: true
+
   api:
     build: 
       context: ./api
-      target: dev
-    container_name: coach-api
+      target: devcontainer
     volumes:
       - type: bind
         source: ./api
+        target: /home/coach/api
+    # ports:
+    #   - "3000:3000"
+    entrypoint: bash 
+    stdin_open: true
+    tty: true
+
+  api-go: # Deprecated, to be removed.
+    build: 
+      context: ./api-go
+      target: dev
+    volumes:
+      - type: bind
+        source: ./api-go
         target: /coach
     ports:
       - "3000:3000"
@@ -29,5 +44,6 @@ services:
     entrypoint: gin --appPort 8080 run .
     stdin_open: true
     tty: true
+
   database:
     container_name: coach-db-devcontainer 

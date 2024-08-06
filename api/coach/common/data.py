@@ -1,11 +1,13 @@
 import os
-import logging
+import structlog
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 from typing import Optional
 from threading import Lock
 
-log = logging.getLogger(__name__)
+
+log = structlog.get_logger()
+
 
 class MongoClientFactory:
     _mongoClient: Optional[MongoClient] = None
